@@ -1,0 +1,281 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String         @id @default(cuid())
+  email           String         @unique
+  name            String
+  university      String         @default("University of North Texas (UNT)")
+  visaStatus      String         @default("F-1")
+  targetRole      String         @default("Summer 2027 Software Engineering Intern")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  settings        UserSettings?
+  recipients      ReportRecipient[]
+  studyDays       StudyDay[]
+  studySessions   StudySession[]
+  dailyReports    DailyReport[]
+  weeklyReports   WeeklyReport[]
+  monthlyReports  MonthlyReport[]
+}
+
+model UserSettings {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyTargetMinutes    Int      @default(180)
+  weeklyTargetHours     Int      @default(21)
+  timezone              String   @default("America/Chicago")
+  theme                 String   @default("dark")
+  autoReportDelivery    Boolean  @default(false)
+  autoReportFrequency   String   @default("daily") // "daily", "weekly", "none"
+  defaultRecipientEmail String?
+  smtpHost              String?
+  smtpPort              Int?
+  smtpUser              String?
+  smtpPass              String?
+  smtpFrom              String?
+  resendApiKey          String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+model Program {
+  id                 String     @id @default(cuid())
+  title              String     @default("180-Day Software Engineering Interview Preparation Handbook")
+  startDate          String     @default("2026-10-14")
+  endDate            String     @default("2027-04-11")
+  totalDays          Int        @default(180)
+  dailyTargetMinutes Int        @default(180)
+  weeklyTargetHours  Int        @default(21)
+  totalPlannedHours  Int        @default(540)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+  studyDays          StudyDay[]
+}
+
+model StudyDay {
+  id                  String          @id @default(cuid())
+  programId           String?
+  program             Program?        @relation(fields: [programId], references: [id], onDelete: SetNull)
+  userId              String?
+  user                User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dayNumber           Int             @unique
+  weekNumber          Int
+  date                String          // YYYY-MM-DD
+  dayOfWeek           String          // e.g. "Wednesday"
+  displayDate         String          // e.g. "Wednesday, October 14, 2026"
+  phase               String          // e.g. "Java Foundations & Essential DSA"
+  topic               String
+  learningObjective   String
+  anchorProblem       String?
+  anchorDifficulty    String?         // "Easy", "Medium", "Hard"
+  anchorPattern       String?
+  anchorInstructions  String?
+  queueText           String?
+  secondaryTask       String?
+  deliverable         String?
+  completionCriterion String?
+  anchorReviewDates   String?
+  totalPlannedMinutes Int             @default(180)
+  actualMinutes       Int             @default(0)
+  status              String          @default("Not Started") // "Not Started", "In Progress", "Completed", "Partially Completed", "Carried Forward", "Missed"
+  notes               String?
+  confidenceRating    Int?            @default(0) // 1 to 5
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  tasks               ScheduledTask[]
+  sessions            StudySession[]
+  reviewsDue          SpacedReview[]
+  dailyReport         DailyReport?
+}
+
+model ScheduledTask {
+  id                  String             @id @default(cuid())
+  studyDayId          String
+  studyDay            StudyDay           @relation(fields: [studyDayId], references: [id], onDelete: Cascade)
+  title               String
+  instruction         String?
+  category            String             // e.g. "Java and DSA", "LeetCode practice", "Spaced review", "CS fundamentals", etc.
+  plannedMinutes      Int                @default(30)
+  actualMinutes       Int                @default(0)
+  remainingMinutes    Int                @default(30)
+  priority            Int                @default(3) // 1: Critical/Revision, 2: Failed DSA, 3: New DSA, 4: Timed/Mock, 5: Project, 6: Stretch
+  status              String             @default("Not Started") // "Not Started", "In Progress", "Completed", "Partially Completed", "Carried Forward", "Missed"
+  notes               String?
+  resourceUrl         String?
+  originalDate        String             // YYYY-MM-DD
+  currentDate         String             // YYYY-MM-DD
+  isAnchor            Boolean            @default(false)
+  isCarriedForward    Boolean            @default(false)
+  sourceTaskId        String?
+  carryoverCount      Int                @default(0)
+  orderIndex          Int                @default(0)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  sessions            StudySession[]
+  outgoingCarryovers  CarryoverRecord[]  @relation("SourceTask")
+  incomingCarryovers  CarryoverRecord[]  @relation("TargetTask")
+}
+
+model StudySession {
+  id              String         @id @default(cuid())
+  scheduledTaskId String?
+  task            ScheduledTask? @relation(fields: [scheduledTaskId], references: [id], onDelete: SetNull)
+  studyDayId      String?
+  studyDay        StudyDay?      @relation(fields: [studyDayId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startTime       DateTime
+  endTime         DateTime?
+  elapsedSeconds  Int            @default(0)
+  activeSeconds   Int            @default(0)
+  pausedSeconds   Int            @default(0)
+  status          String         @default("completed") // "active", "paused", "completed", "cancelled"
+  notes           String?
+  isManual        Boolean        @default(false)
+  auditLog        String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model CarryoverRecord {
+  id              String        @id @default(cuid())
+  sourceTaskId    String
+  sourceTask      ScheduledTask @relation("SourceTask", fields: [sourceTaskId], references: [id], onDelete: Cascade)
+  targetTaskId    String?
+  targetTask      ScheduledTask? @relation("TargetTask", fields: [targetTaskId], references: [id], onDelete: SetNull)
+  fromDate        String        // YYYY-MM-DD
+  toDate          String        // YYYY-MM-DD
+  originalMinutes Int
+  carriedMinutes  Int
+  status          String        @default("Active") // "Active", "Completed", "Undone"
+  reason          String?
+  createdAt       DateTime      @default(now())
+}
+
+model SpacedReview {
+  id             String    @id @default(cuid())
+  studyDayId     String?
+  studyDay       StudyDay? @relation(fields: [studyDayId], references: [id], onDelete: SetNull)
+  anchorTitle    String
+  anchorProblem  String
+  pattern        String?
+  originalDate   String    // YYYY-MM-DD
+  intervalName   String    // "R1", "R3", "R7", "R14", "R30", "R60", "Repair"
+  dueDate        String    // YYYY-MM-DD
+  status         String    @default("Pending") // "Pending", "Completed", "Missed"
+  result         String?   // "Strong", "Needs Practice", "Relearn"
+  completionDate String?   // YYYY-MM-DD
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model DailyReport {
+  id                  String    @id @default(cuid())
+  studyDayId          String    @unique
+  studyDay            StudyDay  @relation(fields: [studyDayId], references: [id], onDelete: Cascade)
+  userId              String?
+  user                User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date                String    // YYYY-MM-DD
+  dayNumber           Int
+  plannedMinutes      Int
+  actualMinutes       Int
+  completedTasksCount Int       @default(0)
+  partialTasksCount   Int       @default(0)
+  carriedTasksCount   Int       @default(0)
+  missedTasksCount    Int       @default(0)
+  independentSolves   Int       @default(0)
+  neededHints         Int       @default(0)
+  fullSolution        Int       @default(0)
+  topicsReviewed      String?
+  mistakesDiscovered  String?
+  confidenceRating    Int       @default(0)
+  tomorrowPriorities  String?
+  generatedAt         DateTime  @default(now())
+  deliveries          ReportDelivery[]
+}
+
+model WeeklyReport {
+  id                       String    @id @default(cuid())
+  userId                   String?
+  user                     User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weekNumber               Int
+  startDate                String    // YYYY-MM-DD
+  endDate                  String    // YYYY-MM-DD
+  plannedHours             Float
+  actualHours              Float
+  adherencePercent         Float
+  totalProblemsAttempted   Int       @default(0)
+  independentSolves        Int       @default(0)
+  spacedRepSuccessRate     Float     @default(0)
+  weakestTopics            String?
+  strongestTopics          String?
+  carryoverRemainingMinutes Int      @default(0)
+  recommendations          String?
+  summary                  String?
+  generatedAt              DateTime  @default(now())
+  deliveries               ReportDelivery[]
+}
+
+model MonthlyReport {
+  id                   String    @id @default(cuid())
+  userId               String?
+  user                 User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  monthNumber          Int
+  startDate            String
+  endDate              String
+  curriculumProgress   Float     @default(0)
+  assessmentResult     String?
+  dsaPatternMastery    String?
+  readinessTrends      String?
+  projectProgress      String?
+  recruitingActivity   String?
+  consistencyRate      Float     @default(0)
+  topPrioritiesNextMonth String?
+  generatedAt          DateTime  @default(now())
+  deliveries           ReportDelivery[]
+}
+
+model ReportRecipient {
+  id             String           @id @default(cuid())
+  userId         String?
+  user           User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  email          String
+  relationship   String?          @default("Accountability Partner")
+  receiveDaily   Boolean          @default(true)
+  receiveWeekly  Boolean          @default(true)
+  receiveMonthly Boolean          @default(true)
+  isEnabled      Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deliveries     ReportDelivery[]
+}
+
+model ReportDelivery {
+  id              String           @id @default(cuid())
+  recipientId     String?
+  recipient       ReportRecipient? @relation(fields: [recipientId], references: [id], onDelete: SetNull)
+  recipientEmail  String
+  reportType      String           // "Daily", "Weekly", "Monthly"
+  reportDate      String           // YYYY-MM-DD
+  dailyReportId   String?
+  dailyReport     DailyReport?     @relation(fields: [dailyReportId], references: [id], onDelete: SetNull)
+  weeklyReportId  String?
+  weeklyReport    WeeklyReport?    @relation(fields: [weeklyReportId], references: [id], onDelete: SetNull)
+  monthlyReportId String?
+  monthlyReport   MonthlyReport?   @relation(fields: [monthlyReportId], references: [id], onDelete: SetNull)
+  status          String           @default("Pending") // "Pending", "Sent", "Failed", "Simulated"
+  errorMessage    String?
+  payloadJson     String?
+  sentAt          DateTime?
+  createdAt       DateTime         @default(now())
+}

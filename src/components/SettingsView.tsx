@@ -1,19 +1,91 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "@/lib/auth-context";
 import {
-  Settings,
   Download,
-  RotateCcw,
-  CheckCircle2,
   Clock,
   User,
   Shield,
-  FileCode,
+  Database,
+  Edit2,
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Save,
+  Server,
+  RefreshCw,
 } from "lucide-react";
 
 export function SettingsView() {
+  const { user, updateProfile, setShowAuthModal, setAuthModalMode } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
+
+  // Edit profile state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [name, setName] = useState("");
+  const [university, setUniversity] = useState("");
+  const [visaStatus, setVisaStatus] = useState("");
+  const [targetRole, setTargetRole] = useState("");
+  const [saveProfileError, setSaveProfileError] = useState<string | null>(null);
+  const [saveProfileSuccess, setSaveProfileSuccess] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Database health state
+  const [dbHealth, setDbHealth] = useState<any>(null);
+  const [isCheckingHealth, setIsCheckingHealth] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setName(user.name);
+      setUniversity(user.university);
+      setVisaStatus(user.visaStatus);
+      setTargetRole(user.targetRole);
+    }
+  }, [user]);
+
+  const checkDbHealth = async () => {
+    setIsCheckingHealth(true);
+    try {
+      const res = await fetch("/api/health");
+      const data = await res.json();
+      setDbHealth(data);
+    } catch (err) {
+      setDbHealth({
+        status: "error",
+        database: { connected: false, error: "Health check request failed" },
+      });
+    } finally {
+      setIsCheckingHealth(false);
+    }
+  };
+
+  useEffect(() => {
+    checkDbHealth();
+  }, []);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingProfile(true);
+    setSaveProfileError(null);
+    setSaveProfileSuccess(false);
+
+    const res = await updateProfile({
+      name,
+      university,
+      visaStatus,
+      targetRole,
+    });
+
+    setIsSavingProfile(false);
+    if (res.success) {
+      setSaveProfileSuccess(true);
+      setIsEditingProfile(false);
+      setTimeout(() => setSaveProfileSuccess(false), 3000);
+    } else {
+      setSaveProfileError(res.error || "Failed to update profile");
+    }
+  };
 
   const handleExportData = async () => {
     setIsExporting(true);
@@ -47,43 +119,216 @@ export function SettingsView() {
           </span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-white">
-          Settings & Full Data Export
+          Settings, Profile & Database Status
         </h1>
         <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
-          Manage your student profile, study parameters, and download persistent local backups of all recorded progress, timers, and carryovers.
+          Manage your student profile, verify real PostgreSQL database connectivity, and download persistent local backups of all recorded progress, timers, and carryovers.
         </p>
+      </div>
+
+      {/* Database Connection & Health Card */}
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5">
+            <Database className="w-5 h-5 text-indigo-400" />
+            <div>
+              <h3 className="text-base font-bold text-white">PostgreSQL Backend Connection</h3>
+              <p className="text-xs text-slate-400">Verifies live connectivity to your PostgreSQL database</p>
+            </div>
+          </div>
+          <button
+            onClick={checkDbHealth}
+            disabled={isCheckingHealth}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 transition cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCheckingHealth ? "animate-spin" : ""}`} />
+            <span>Check Connectivity</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+          <div className="space-y-2 bg-slate-950 p-4 rounded-xl border border-slate-800">
+            <div className="flex justify-between py-1 border-b border-slate-800/60">
+              <span className="text-slate-400">Database Driver:</span>
+              <span className="font-mono text-emerald-400 font-semibold">PostgreSQL (Prisma ORM)</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-800/60">
+              <span className="text-slate-400">Configured Host:</span>
+              <span className="font-mono text-white">192.168.68.61:5433</span>
+            </div>
+            <div className="flex justify-between py-1 border-b border-slate-800/60">
+              <span className="text-slate-400">Target Database:</span>
+              <span className="font-mono text-white">barun_db (user: barun)</span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-slate-400">Connection Status:</span>
+              {dbHealth?.database?.connected ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-semibold">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Connected ({dbHealth.database.responseTimeMs}ms)
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-semibold">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Remote Port 5433 Refused
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-slate-300">
+            <h4 className="font-bold text-white flex items-center gap-1.5">
+              <Server className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Connection Diagnostics & Remediation</span>
+            </h4>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              Host <code className="text-indigo-300">192.168.68.61</code> is reachable over the network. Port 5433 responds with <code className="text-amber-400">ECONNREFUSED</code> because the PostgreSQL container/service on the remote machine is not currently running.
+            </p>
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              To activate remote persistence, start the PostgreSQL container on your Ubuntu server (<code className="text-slate-200">docker start &lt;container&gt;</code>) mapping port 5433 to 5432.
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Student Profile Card */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-          <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-            <User className="w-5 h-5 text-indigo-400" />
-            <h3 className="text-base font-bold text-white">Student Profile</h3>
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center gap-2">
+              <User className="w-5 h-5 text-indigo-400" />
+              <h3 className="text-base font-bold text-white">Student Profile</h3>
+            </div>
+            {user ? (
+              <button
+                onClick={() => setIsEditingProfile(!isEditingProfile)}
+                className="flex items-center gap-1 px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 transition cursor-pointer"
+              >
+                <Edit2 className="w-3 h-3" />
+                <span>{isEditingProfile ? "Cancel" : "Edit Profile"}</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setAuthModalMode("login");
+                  setShowAuthModal(true);
+                }}
+                className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-bold text-white transition cursor-pointer"
+              >
+                Sign In
+              </button>
+            )}
           </div>
 
-          <div className="space-y-3 text-xs">
-            <div className="flex justify-between py-1.5 border-b border-slate-800/60">
-              <span className="text-slate-400">Student Name:</span>
-              <span className="font-semibold text-white">Barun Chhetri</span>
+          {saveProfileSuccess && (
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>Profile updated successfully!</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-slate-800/60">
-              <span className="text-slate-400">Institution:</span>
-              <span className="font-semibold text-white">University of North Texas (UNT)</span>
+          )}
+
+          {saveProfileError && (
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{saveProfileError}</span>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-slate-800/60">
-              <span className="text-slate-400">Class Standing:</span>
-              <span className="font-semibold text-white">Junior (Computer Science)</span>
+          )}
+
+          {isEditingProfile ? (
+            <form onSubmit={handleSaveProfile} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-400 mb-1">Student Name</label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1">Institution</label>
+                <input
+                  type="text"
+                  required
+                  value={university}
+                  onChange={(e) => setUniversity(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1">Visa Status</label>
+                <select
+                  value={visaStatus}
+                  onChange={(e) => setVisaStatus(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                >
+                  <option value="F-1">F-1 Student Visa</option>
+                  <option value="J-1">J-1 Exchange Visa</option>
+                  <option value="US Citizen / PR">US Citizen / PR</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1">Target Opportunity</label>
+                <input
+                  type="text"
+                  required
+                  value={targetRole}
+                  onChange={(e) => setTargetRole(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsEditingProfile(false)}
+                  className="px-3 py-1.5 rounded-xl text-slate-400 hover:text-white cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingProfile ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Save className="w-3.5 h-3.5" />
+                  )}
+                  <span>Save Changes</span>
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-3 text-xs">
+              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
+                <span className="text-slate-400">Student Name:</span>
+                <span className="font-semibold text-white">{user?.name || "Barun Chhetri"}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
+                <span className="text-slate-400">Account Email:</span>
+                <span className="font-mono text-slate-300">{user?.email || "Not signed in"}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
+                <span className="text-slate-400">Institution:</span>
+                <span className="font-semibold text-white">{user?.university || "University of North Texas (UNT)"}</span>
+              </div>
+              <div className="flex justify-between py-1.5 border-b border-slate-800/60">
+                <span className="text-slate-400">Visa Status:</span>
+                <span className="font-semibold text-emerald-400">{user?.visaStatus || "F-1 Student Visa"}</span>
+              </div>
+              <div className="flex justify-between py-1.5">
+                <span className="text-slate-400">Target Opportunity:</span>
+                <span className="font-semibold text-indigo-300">{user?.targetRole || "Summer 2027 Software Engineering Internship"}</span>
+              </div>
             </div>
-            <div className="flex justify-between py-1.5 border-b border-slate-800/60">
-              <span className="text-slate-400">Visa Status:</span>
-              <span className="font-semibold text-emerald-400">F-1 Student Visa</span>
-            </div>
-            <div className="flex justify-between py-1.5">
-              <span className="text-slate-400">Target Opportunity:</span>
-              <span className="font-semibold text-indigo-300">Summer 2027 Software Engineering Internship</span>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Program Commitment Parameters */}
@@ -139,7 +384,7 @@ export function SettingsView() {
         </div>
 
         <p className="text-xs text-slate-400 leading-relaxed">
-          Your data is persisted in a local relational database (`dev.db`). This export provides an independent snapshot you can keep on Google Drive, GitHub, or use to restore on another computer.
+          Your data is structured for PostgreSQL persistence. This export provides an independent snapshot you can keep on Google Drive, GitHub, or use to restore on another computer.
         </p>
       </div>
     </div>

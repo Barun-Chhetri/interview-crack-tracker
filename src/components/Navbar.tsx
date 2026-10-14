@@ -1,6 +1,5 @@
-"use client";
-
 import React from "react";
+import { useAuth } from "@/lib/auth-context";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -16,6 +15,9 @@ import {
   Clock,
   ChevronDown,
   GraduationCap,
+  LogIn,
+  LogOut,
+  User,
 } from "lucide-react";
 
 export type ActiveTab =
@@ -47,6 +49,8 @@ export function Navbar({
   todayActualMinutes,
   todayPlannedMinutes,
 }: NavbarProps) {
+  const { user, logout, setShowAuthModal, setAuthModalMode } = useAuth();
+
   const actualHours = (todayActualMinutes / 60).toFixed(1);
   const plannedHours = (todayPlannedMinutes / 60).toFixed(1);
   const percent = Math.min(100, Math.round((todayActualMinutes / (todayPlannedMinutes || 180)) * 100));
@@ -82,7 +86,13 @@ export function Navbar({
               </span>
             </div>
             <p className="text-xs text-slate-400">
-              Barun Chhetri &bull; University of North Texas &bull; F-1 Visa
+              {user ? (
+                <>
+                  <span className="font-semibold text-slate-200">{user.name}</span> &bull; {user.university} &bull; <span className="text-emerald-400 font-semibold">{user.visaStatus}</span>
+                </>
+              ) : (
+                "Guest Mode \u2022 Sign in to record PostgreSQL progress"
+              )}
             </p>
           </div>
         </div>
@@ -131,6 +141,41 @@ export function Navbar({
             <Flame className="w-3.5 h-3.5 fill-current" />
             <span>Streak: Day {selectedDayNumber}</span>
           </div>
+
+          {/* Auth Controls */}
+          {user ? (
+            <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
+              <button
+                onClick={() => setActiveTab("settings")}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900 border border-slate-700/80 text-xs text-slate-300 hover:text-white transition cursor-pointer"
+                title={`Signed in as ${user.email}`}
+              >
+                <User className="w-3.5 h-3.5 text-indigo-400" />
+                <span className="font-semibold hidden lg:inline max-w-[90px] truncate">{user.name.split(" ")[0]}</span>
+              </button>
+              <button
+                onClick={logout}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 text-xs font-semibold transition cursor-pointer"
+                title="Sign Out"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Logout</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 pl-2 border-l border-slate-800">
+              <button
+                onClick={() => {
+                  setAuthModalMode("login");
+                  setShowAuthModal(true);
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-sm shadow-emerald-600/20 cursor-pointer"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Sign In</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

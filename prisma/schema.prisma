@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -11,6 +11,10 @@ model User {
   id              String         @id @default(cuid())
   email           String         @unique
   name            String
+  passwordHash    String         @default("")
+  role            String         @default("USER")
+  resetToken      String?
+  resetTokenExpiry DateTime?
   university      String         @default("University of North Texas (UNT)")
   visaStatus      String         @default("F-1")
   targetRole      String         @default("Summer 2027 Software Engineering Intern")
@@ -23,6 +27,10 @@ model User {
   dailyReports    DailyReport[]
   weeklyReports   WeeklyReport[]
   monthlyReports  MonthlyReport[]
+  projectStages   ProjectStage[]
+  starStories     StarStory[]
+  recruitingItems RecruitingChecklistItem[]
+  jobApplications JobApplication[]
 }
 
 model UserSettings {
@@ -279,3 +287,64 @@ model ReportDelivery {
   sentAt          DateTime?
   createdAt       DateTime         @default(now())
 }
+
+model ProjectStage {
+  id                String   @id @default(cuid())
+  userId            String?
+  user              User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stageNumber       Int      // 1 to 5
+  title             String
+  focus             String
+  proofRequirements String
+  isCompleted       Boolean  @default(false)
+  notes             String?
+  repoUrl           String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model StarStory {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   String   // "Conflict / Collaboration", "Failure / Resilience", "Ambiguity / Leadership", "Technical Tradeoff", "General"
+  question   String
+  situation  String
+  task       String
+  action     String
+  result     String
+  confidence Int      @default(3) // 1 to 5
+  isCustom   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model RecruitingChecklistItem {
+  id          String    @id @default(cuid())
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    String    // "CPT / Legal", "Resume & Profile", "Application Cadence"
+  title       String
+  detail      String?
+  isCompleted Boolean   @default(false)
+  completedAt DateTime?
+  orderIndex  Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model JobApplication {
+  id          String   @id @default(cuid())
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company     String
+  position    String   @default("Software Engineering Intern (Summer 2027)")
+  location    String?
+  status      String   @default("Applied") // "Applied", "Online Assessment", "Technical Screen", "Final Round", "Offer", "Rejected"
+  dateApplied String   // YYYY-MM-DD
+  jobUrl      String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+

@@ -1,19 +1,26 @@
 import { PrismaClient } from "@prisma/client";
 import * as fs from "fs";
 import * as path from "path";
+import * as bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log("Starting database seed...");
 
-  // 1. Create or upsert default user
+  const defaultPasswordHash = await bcrypt.hash("Password123!", 10);
+
+  // 1. Create or upsert default student user
   const user = await prisma.user.upsert({
     where: { email: "student@unt.edu" },
-    update: {},
+    update: {
+      passwordHash: defaultPasswordHash,
+    },
     create: {
       email: "student@unt.edu",
       name: "Barun Chhetri",
+      passwordHash: defaultPasswordHash,
+      role: "USER",
       university: "University of North Texas (UNT)",
       visaStatus: "F-1",
       targetRole: "Summer 2027 Software Engineering Intern",
@@ -40,6 +47,21 @@ async function main() {
           },
         ],
       },
+    },
+  });
+
+  // Also seed primary personal account if not already created
+  await prisma.user.upsert({
+    where: { email: "barun.chhetri444@gmail.com" },
+    update: {},
+    create: {
+      email: "barun.chhetri444@gmail.com",
+      name: "Barun Chhetri",
+      passwordHash: defaultPasswordHash,
+      role: "USER",
+      university: "University of North Texas (UNT)",
+      visaStatus: "F-1",
+      targetRole: "Summer 2027 Software Engineering Intern",
     },
   });
 

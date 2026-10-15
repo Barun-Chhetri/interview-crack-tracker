@@ -43,6 +43,8 @@ interface DashboardViewProps {
   onNavigateTab: (tab: string) => void;
   onSelectDay: (dayNumber: number) => void;
   onRefreshData: () => void;
+  isLoading?: boolean;
+  loadError?: string | null;
 }
 
 export function DashboardView({
@@ -51,14 +53,42 @@ export function DashboardView({
   onNavigateTab,
   onSelectDay,
   onRefreshData,
+  isLoading,
+  loadError,
 }: DashboardViewProps) {
   const { startTimer, timer } = useTimer();
 
+  if (loadError && !currentDay) {
+    return (
+      <div className="rounded-3xl border border-rose-500/30 bg-rose-950/20 p-8 sm:p-12 text-center max-w-2xl mx-auto my-12 space-y-4 shadow-2xl">
+        <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-400">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h3 className="text-xl font-bold text-white">Database Connection Notice</h3>
+        <p className="text-sm text-slate-300">
+          {loadError}
+        </p>
+        <p className="text-xs text-slate-400 leading-relaxed max-w-lg mx-auto">
+          If you are developing locally, ensure your database connection in <code className="bg-slate-900 px-2 py-0.5 rounded text-slate-300">.env</code> is active. In production on Dockyard, PostgreSQL is managed automatically via the Dockyard PostgreSQL addon.
+        </p>
+        <div className="pt-2 flex justify-center gap-3">
+          <button
+            onClick={onRefreshData}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-lg shadow-emerald-600/20 transition cursor-pointer"
+          >
+            <Repeat className="w-4 h-4" />
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!currentDay) {
     return (
-      <div className="flex items-center justify-center p-12 text-slate-400">
-        <Clock className="w-6 h-6 animate-spin mr-2" />
-        Loading daily study plan...
+      <div className="flex flex-col items-center justify-center p-16 text-slate-400 space-y-3">
+        <Clock className="w-8 h-8 animate-spin text-emerald-400" />
+        <span className="text-sm font-medium">Loading daily study plan...</span>
       </div>
     );
   }

@@ -24,6 +24,7 @@ function MainApp() {
   const [currentDay, setCurrentDay] = useState<StudyDayDTO | null>(null);
   const [curriculumOverview, setCurriculumOverview] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const fetchDayData = async (dayNum: number) => {
     try {
@@ -31,9 +32,14 @@ function MainApp() {
       if (res.ok) {
         const data = await res.json();
         setCurrentDay(data);
+        setLoadError(null);
+      } else {
+        const errData = await res.json().catch(() => null);
+        setLoadError(errData?.error || `Failed to retrieve study day (${res.status})`);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to load day:", err);
+      setLoadError("Network error: Could not connect to API server.");
     }
   };
 
@@ -51,14 +57,18 @@ function MainApp() {
 
   useEffect(() => {
     setIsLoading(true);
+    setLoadError(null);
     Promise.all([fetchDayData(selectedDayNumber), fetchCurriculumOverview()]).finally(() =>
       setIsLoading(false)
     );
   }, [selectedDayNumber]);
 
   const handleRefreshData = () => {
-    fetchDayData(selectedDayNumber);
-    fetchCurriculumOverview();
+    setIsLoading(true);
+    setLoadError(null);
+    Promise.all([fetchDayData(selectedDayNumber), fetchCurriculumOverview()]).finally(() =>
+      setIsLoading(false)
+    );
   };
 
   return (
@@ -82,6 +92,8 @@ function MainApp() {
             onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
             onSelectDay={setSelectedDayNumber}
             onRefreshData={handleRefreshData}
+            isLoading={isLoading}
+            loadError={loadError}
           />
         )}
 

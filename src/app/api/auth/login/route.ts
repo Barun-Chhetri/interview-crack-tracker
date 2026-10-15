@@ -124,8 +124,15 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error) {
+  } catch (error: any) {
     console.error("POST /api/auth/login error:", error);
+    const msg = error?.message || "";
+    if (msg.includes("Can't reach database server") || error?.code === "P1001") {
+      return NextResponse.json(
+        { error: "Database server is unreachable. Please verify database connectivity." },
+        { status: 503 }
+      );
+    }
     return NextResponse.json(
       { error: "An error occurred during authentication" },
       { status: 500 }

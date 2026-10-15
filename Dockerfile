@@ -20,7 +20,7 @@ COPY . .
 RUN npx prisma generate
 
 # Compile seed script to standalone JavaScript
-RUN npx tsc prisma/seed.ts --module commonjs --target es2020 --moduleResolution node --skipLibCheck --outDir prisma/dist
+RUN npx tsc prisma/seed.ts --module commonjs --target es2020 --moduleResolution node --esModuleInterop --skipLibCheck --outDir prisma/dist
 
 # Build Next.js standalone application
 ENV NEXT_TELEMETRY_DISABLED=1

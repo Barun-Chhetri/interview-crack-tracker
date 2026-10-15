@@ -14,7 +14,7 @@ if [ -n "$DATABASE_URL" ] && echo "$DATABASE_URL" | grep -qE '^postgres(ql)?://'
       echo "=> PostgreSQL schema synchronized successfully!"
       if [ -f /app/prisma/dist/seed.js ]; then
         echo "=> Verifying database seed data..."
-        node /app/prisma/dist/seed.js 2>/dev/null || true
+        node /app/prisma/dist/seed.js || true
       fi
     else
       echo "=> NOTE: PostgreSQL on $DB_HOST:$DB_PORT is currently not accepting connections."

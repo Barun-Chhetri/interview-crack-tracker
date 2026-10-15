@@ -253,29 +253,6 @@ export function AuthModal() {
           </div>
         )}
 
-        {/* Quick Demo Credentials */}
-        {authModalMode === "login" && (
-          <div className="mb-4 p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-400 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-slate-300">Default Account:</span>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("student@unt.edu");
-                  setPassword("Password123!");
-                  resetFormFeedback();
-                }}
-                className="text-emerald-400 hover:text-emerald-300 text-[11px] font-semibold underline cursor-pointer"
-              >
-                Autofill
-              </button>
-            </div>
-            <p className="text-[11px] font-mono text-slate-400">
-              Email: <span className="text-slate-200">student@unt.edu</span> &bull; Pass: <span className="text-slate-200">Password123!</span>
-            </p>
-          </div>
-        )}
-
         {/* 1. SIGN IN FORM */}
         {authModalMode === "login" && (
           <form onSubmit={handleLoginSubmit} className="space-y-4">
@@ -288,7 +265,7 @@ export function AuthModal() {
                 <input
                   type="email"
                   required
-                  placeholder="student@unt.edu"
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -374,7 +351,7 @@ export function AuthModal() {
                 <input
                   type="email"
                   required
-                  placeholder="student@unt.edu"
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -492,7 +469,7 @@ export function AuthModal() {
                 <input
                   type="email"
                   required
-                  placeholder="student@unt.edu"
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"

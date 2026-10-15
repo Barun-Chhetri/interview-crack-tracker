@@ -1,74 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 import * as fs from "fs";
 import * as path from "path";
-// Precomputed bcrypt hash for "Password123!" (10 rounds)
-const DEFAULT_PASSWORD_HASH = "$2b$10$mL5l6feAsL5C4l4GLBhfk.0Qdn6vnTcwulcbWxRG19ZAps/BLPe1K";
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log("Starting database seed...");
 
-  const defaultPasswordHash = DEFAULT_PASSWORD_HASH;
-
-  // 1. Create or upsert default student user
-  const user = await prisma.user.upsert({
-    where: { email: "student@unt.edu" },
-    update: {
-      passwordHash: defaultPasswordHash,
-    },
-    create: {
-      email: "student@unt.edu",
-      name: "Barun Chhetri",
-      passwordHash: defaultPasswordHash,
-      role: "USER",
-      university: "University of North Texas (UNT)",
-      visaStatus: "F-1",
-      targetRole: "Summer 2027 Software Engineering Intern",
-      settings: {
-        create: {
-          dailyTargetMinutes: 180,
-          weeklyTargetHours: 21,
-          timezone: "America/Chicago",
-          theme: "dark",
-          autoReportDelivery: false,
-          autoReportFrequency: "daily",
-        },
-      },
-      recipients: {
-        create: [
-          {
-            name: "Mentor / Accountability Partner",
-            email: "partner@example.com",
-            relationship: "Accountability Partner",
-            receiveDaily: true,
-            receiveWeekly: true,
-            receiveMonthly: true,
-            isEnabled: true,
-          },
-        ],
-      },
-    },
-  });
-
-  // Also seed primary personal account if not already created
-  await prisma.user.upsert({
-    where: { email: "barun.chhetri444@gmail.com" },
-    update: {},
-    create: {
-      email: "barun.chhetri444@gmail.com",
-      name: "Barun Chhetri",
-      passwordHash: defaultPasswordHash,
-      role: "USER",
-      university: "University of North Texas (UNT)",
-      visaStatus: "F-1",
-      targetRole: "Summer 2027 Software Engineering Intern",
-    },
-  });
-
-  console.log(`User seeded: ${user.name} (${user.email})`);
-
-  // 2. Create or upsert Program
+  // 1. Create or upsert Program
   const program = await prisma.program.upsert({
     where: { id: "swe-180-handbook" },
     update: {},
@@ -140,7 +79,7 @@ async function main() {
         actualMinutes: 0,
         status: "Not Started",
         programId: program.id,
-        userId: user.id,
+        userId: null,
       },
     });
 

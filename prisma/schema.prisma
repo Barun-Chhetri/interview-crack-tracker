@@ -73,7 +73,7 @@ model StudyDay {
   programId           String?
   program             Program?        @relation(fields: [programId], references: [id], onDelete: SetNull)
   userId              String?
-  user                User?           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   dayNumber           Int             @unique
   weekNumber          Int
   date                String          // YYYY-MM-DD

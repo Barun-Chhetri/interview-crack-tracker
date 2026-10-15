@@ -15,6 +15,7 @@ import {
   Save,
   Server,
   RefreshCw,
+  RotateCcw,
 } from "lucide-react";
 
 export function SettingsView() {
@@ -109,6 +110,31 @@ export function SettingsView() {
     }
   };
 
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+
+  const handleResetProgress = async () => {
+    if (!confirm("Are you sure you want to reset all 180 study days and tasks to 0 minutes? This will clear all recorded study sessions and carryovers.")) {
+      return;
+    }
+    setIsResetting(true);
+    try {
+      const res = await fetch("/api/curriculum/reset", { method: "POST" });
+      if (res.ok) {
+        setResetSuccess(true);
+        setTimeout(() => setResetSuccess(false), 3000);
+        window.location.reload();
+      } else {
+        alert("Failed to reset study progress");
+      }
+    } catch (err) {
+      console.error("Reset failed:", err);
+      alert("Failed to reset study progress");
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
@@ -132,8 +158,8 @@ export function SettingsView() {
           <div className="flex items-center gap-2.5">
             <Database className="w-5 h-5 text-indigo-400" />
             <div>
-              <h3 className="text-base font-bold text-white">PostgreSQL Backend Connection</h3>
-              <p className="text-xs text-slate-400">Verifies live connectivity to your PostgreSQL database</p>
+              <h3 className="text-base font-bold text-white">Database Backend Connection</h3>
+              <p className="text-xs text-slate-400">Verifies live connectivity to your active database</p>
             </div>
           </div>
           <button
@@ -150,15 +176,21 @@ export function SettingsView() {
           <div className="space-y-2 bg-slate-950 p-4 rounded-xl border border-slate-800">
             <div className="flex justify-between py-1 border-b border-slate-800/60">
               <span className="text-slate-400">Database Driver:</span>
-              <span className="font-mono text-emerald-400 font-semibold">PostgreSQL (Prisma ORM)</span>
+              <span className="font-mono text-emerald-400 font-semibold">
+                {dbHealth?.database?.type || "SQLite"} (Prisma ORM)
+              </span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-800/60">
-              <span className="text-slate-400">Configured Host:</span>
-              <span className="font-mono text-white">192.168.68.61:5433</span>
+              <span className="text-slate-400">Location / Target:</span>
+              <span className="font-mono text-white">
+                {dbHealth?.database?.location || "prisma/dev.db (Local)"}
+              </span>
             </div>
             <div className="flex justify-between py-1 border-b border-slate-800/60">
               <span className="text-slate-400">Target Database:</span>
-              <span className="font-mono text-white">barun_db (user: barun)</span>
+              <span className="font-mono text-white">
+                {dbHealth?.database?.type === "PostgreSQL" ? "barun_db (user: barun)" : "dev.db (Relational)"}
+              </span>
             </div>
             <div className="flex justify-between py-1">
               <span className="text-slate-400">Connection Status:</span>
@@ -170,7 +202,7 @@ export function SettingsView() {
               ) : (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-semibold">
                   <AlertCircle className="w-3.5 h-3.5" />
-                  Remote Port 5433 Refused
+                  {dbHealth ? "Database Disconnected" : "Checking..."}
                 </span>
               )}
             </div>
@@ -179,13 +211,13 @@ export function SettingsView() {
           <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-slate-300">
             <h4 className="font-bold text-white flex items-center gap-1.5">
               <Server className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Connection Diagnostics & Remediation</span>
+              <span>Persistence & Data Integrity</span>
             </h4>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Host <code className="text-indigo-300">192.168.68.61</code> is reachable over the network. Port 5433 responds with <code className="text-amber-400">ECONNREFUSED</code> because the PostgreSQL container/service on the remote machine is not currently running.
+              All 180 study days, curriculum schedules, timers, carryovers, STAR stories, and user accounts persist reliably through Prisma ORM.
             </p>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              To activate remote persistence, start the PostgreSQL container on your Ubuntu server (<code className="text-slate-200">docker start &lt;container&gt;</code>) mapping port 5433 to 5432.
+              To switch between SQLite and PostgreSQL, update <code className="text-indigo-300">DATABASE_URL</code> in <code className="text-indigo-300">.env</code> and run <code className="text-slate-200">npx prisma db push</code>.
             </p>
           </div>
         </div>
@@ -384,7 +416,43 @@ export function SettingsView() {
         </div>
 
         <p className="text-xs text-slate-400 leading-relaxed">
-          Your data is structured for PostgreSQL persistence. This export provides an independent snapshot you can keep on Google Drive, GitHub, or use to restore on another computer.
+          Your data is structured for local relational database persistence. This export provides an independent snapshot you can keep on Google Drive, GitHub, or use to restore on another computer.
+        </p>
+      </div>
+
+      {/* Reset Study Progress Card */}
+      <div className="bg-slate-900 border border-rose-900/30 rounded-2xl p-6 shadow-xl space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2.5">
+            <RotateCcw className="w-5 h-5 text-rose-400" />
+            <div>
+              <h3 className="text-base font-bold text-white">Reset Study Progress</h3>
+              <p className="text-xs text-slate-400">Restart your 180-day curriculum fresh from Day 1 (0 studied minutes, all tasks uncompleted)</p>
+            </div>
+          </div>
+          <button
+            onClick={handleResetProgress}
+            disabled={isResetting}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600/90 hover:bg-rose-600 text-white text-xs font-bold shadow-lg shadow-rose-600/20 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isResetting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RotateCcw className="w-4 h-4" />
+            )}
+            <span>{isResetting ? "Resetting..." : "Reset to Day 1 (0 min)"}</span>
+          </button>
+        </div>
+
+        {resetSuccess && (
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs">
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <span>Curriculum progress successfully reset to 0 minutes!</span>
+          </div>
+        )}
+
+        <p className="text-xs text-slate-400 leading-relaxed">
+          This resets all 180 curriculum days and scheduled tasks back to their original zero-progress state, and removes any previous study session logs and carryover transfers.
         </p>
       </div>
     </div>

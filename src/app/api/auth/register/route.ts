@@ -128,10 +128,30 @@ export async function POST(request: NextRequest) {
     });
 
     return response;
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("POST /api/auth/register error:", error);
+
+    // Handle Prisma unique constraint violation
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code: string }).code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: "An account with this email address already exists" },
+        { status: 409 }
+      );
+    }
+
+    const errorMessage =
+      error instanceof Error ? error.message : "An error occurred during registration";
+
     return NextResponse.json(
-      { error: "An error occurred during registration" },
+      {
+        error: "An error occurred during registration",
+        details: process.env.NODE_ENV !== "production" ? errorMessage : undefined,
+      },
       { status: 500 }
     );
   }

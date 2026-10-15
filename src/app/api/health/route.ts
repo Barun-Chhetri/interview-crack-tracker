@@ -30,13 +30,15 @@ export async function GET() {
     };
   }
 
+  const isPostgres = process.env.DATABASE_URL?.startsWith("postgres");
   const responseTimeMs = Date.now() - startTime;
 
   return NextResponse.json(
     {
       status: dbConnected ? "healthy" : "database_unreachable",
       database: {
-        type: "PostgreSQL",
+        type: isPostgres ? "PostgreSQL" : "SQLite",
+        location: isPostgres ? (process.env.DB_HOST || "192.168.68.61:5433") : "prisma/dev.db (Local)",
         connected: dbConnected,
         responseTimeMs,
         error: dbError,

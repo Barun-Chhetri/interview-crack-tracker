@@ -334,7 +334,7 @@ export function AuthModal() {
                 <input
                   type="text"
                   required
-                  placeholder="Barun Chhetri"
+                  placeholder="John Doe"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-3.5 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500"

@@ -341,7 +341,7 @@ export function SettingsView() {
             <div className="space-y-3 text-xs">
               <div className="flex justify-between py-1.5 border-b border-slate-800/60">
                 <span className="text-slate-400">Student Name:</span>
-                <span className="font-semibold text-white">{user?.name || "Barun Chhetri"}</span>
+                <span className="font-semibold text-white">{user?.name || "Candidate"}</span>
               </div>
               <div className="flex justify-between py-1.5 border-b border-slate-800/60">
                 <span className="text-slate-400">Account Email:</span>

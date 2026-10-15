@@ -1,15 +1,15 @@
 import { PrismaClient } from "@prisma/client";
 import * as fs from "fs";
 import * as path from "path";
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const bcrypt = require("bcryptjs");
+// Precomputed bcrypt hash for "Password123!" (10 rounds)
+const DEFAULT_PASSWORD_HASH = "$2b$10$mL5l6feAsL5C4l4GLBhfk.0Qdn6vnTcwulcbWxRG19ZAps/BLPe1K";
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log("Starting database seed...");
 
-  const defaultPasswordHash = bcrypt.hashSync("Password123!", 10);
+  const defaultPasswordHash = DEFAULT_PASSWORD_HASH;
 
   // 1. Create or upsert default student user
   const user = await prisma.user.upsert({

@@ -22,15 +22,17 @@ function buildDaySessions(
   anchorProblem: string | null = null,
   dayStatus: string = "Not Started"
 ) {
+  // 1. If real study sessions exist in database, return them formatted
   if (rawSessions && rawSessions.length > 0) {
     return rawSessions.map((s: any, idx: number) => {
       const sStart = new Date(s.startTime);
+      const activeSec = s.activeSeconds || s.elapsedSeconds || 60;
       const sEnd = s.endTime
         ? new Date(s.endTime)
-        : new Date(sStart.getTime() + (s.activeSeconds || s.elapsedSeconds || 1800) * 1000);
-      const durationMin = Math.round((s.activeSeconds || s.elapsedSeconds || 1800) / 60) || 1;
+        : new Date(sStart.getTime() + activeSec * 1000);
+      const durationMin = Math.max(1, Math.round(activeSec / 60));
       const matchedTask = tasks.find((t: any) => t.id === s.scheduledTaskId);
-      const taskTitle = matchedTask ? matchedTask.title : (s.notes || `Deep Work Session ${idx + 1}`);
+      const taskTitle = matchedTask ? matchedTask.title : (s.notes || `Study Session ${idx + 1}`);
       const startFmt = formatTime12h(sStart);
       const endFmt = formatTime12h(sEnd);
 
@@ -45,118 +47,56 @@ function buildDaySessions(
         durationMinutes: durationMin,
         durationHours: Number((durationMin / 60).toFixed(1)),
         taskTitle,
-        category: matchedTask?.category || "LeetCode Practice",
+        category: matchedTask?.category || (s.isManual ? "Study Checklist" : "Focus Timer"),
         status: s.status || "Completed",
-        notes: s.notes || null,
+        notes: s.notes || (s.isManual ? "Manual checklist log" : "Audited focus session"),
         isManual: !!s.isManual,
       };
     });
   }
 
-  // Synthesize realistic study intervals based on actualMinutes or planned tasks
-  const effectiveMinutes = actualMinutes > 0 ? actualMinutes : (dayStatus === "Completed" ? 180 : 0);
-
-  if (effectiveMinutes > 0) {
-    const baseDate = dayDateStr || "2026-10-14";
-    const slot1Duration = Math.min(effectiveMinutes, Math.round(effectiveMinutes * 0.55));
-    const slot2Duration = effectiveMinutes - slot1Duration;
-    const result = [];
-
-    // Session 1: Morning Deep Work block
-    const d1Start = new Date(`${baseDate}T09:00:00`);
-    const d1End = new Date(d1Start.getTime() + slot1Duration * 60 * 1000);
-    const start1Fmt = formatTime12h(d1Start);
-    const end1Fmt = formatTime12h(d1End);
-    const anchorTask = tasks.find((t: any) => t.isAnchor) || tasks[2] || tasks[0];
-
-    result.push({
-      id: `session-1-${dayNumber}`,
-      sessionIndex: 1,
-      startTime: d1Start.toISOString(),
-      endTime: d1End.toISOString(),
-      displayTimeRange: `${start1Fmt} – ${end1Fmt}`,
-      startTimeFormatted: start1Fmt,
-      endTimeFormatted: end1Fmt,
-      durationMinutes: slot1Duration,
-      durationHours: Number((slot1Duration / 60).toFixed(1)),
-      taskTitle: anchorTask
-        ? `${anchorTask.title}: ${anchorProblem || "Algorithm Implementation"}`
-        : `Algorithm Deep-Work: ${anchorProblem || "Problem Practice"}`,
-      category: "LeetCode Practice & DSA",
-      status: "Completed",
-      notes: "Morning deep-work block: Invariant analysis and cold problem attempt",
-      isManual: false,
-    });
-
-    if (slot2Duration > 0) {
-      const d2Start = new Date(`${baseDate}T14:00:00`);
-      const d2End = new Date(d2Start.getTime() + slot2Duration * 60 * 1000);
-      const start2Fmt = formatTime12h(d2Start);
-      const end2Fmt = formatTime12h(d2End);
-      const secondaryTask = tasks.find((t: any) => !t.isAnchor && t.category?.includes("Backend")) || tasks[tasks.length - 1] || tasks[1];
-
-      result.push({
-        id: `session-2-${dayNumber}`,
-        sessionIndex: 2,
-        startTime: d2Start.toISOString(),
-        endTime: d2End.toISOString(),
-        displayTimeRange: `${start2Fmt} – ${end2Fmt}`,
-        startTimeFormatted: start2Fmt,
-        endTimeFormatted: end2Fmt,
-        durationMinutes: slot2Duration,
-        durationHours: Number((slot2Duration / 60).toFixed(1)),
-        taskTitle: secondaryTask ? secondaryTask.title : "CS Fundamentals, System Design & Recall",
-        category: "CS Fundamentals & Review",
-        status: "Completed",
-        notes: "Afternoon review block: Spaced repetition and exit deliverable check",
-        isManual: false,
-      });
-    }
-
-    return result;
+  // 2. Strict policy: NO dummy / fake session data!
+  // If no time was logged (actualMinutes <= 0), return an empty session list.
+  if (!actualMinutes || actualMinutes <= 0) {
+    return [];
   }
 
-  // Scheduled planned sessions for unstarted days
-  const baseDate = dayDateStr || "2026-10-14";
-  const d1Start = new Date(`${baseDate}T09:00:00`);
-  const d1End = new Date(`${baseDate}T10:30:00`);
-  const d2Start = new Date(`${baseDate}T14:00:00`);
-  const d2End = new Date(`${baseDate}T15:30:00`);
+  // 3. Fallback for legacy tasks where minutes were logged before studySession table linkage:
+  // Only generate blocks for tasks that strictly have actualMinutes > 0, matching their exact duration.
+  const activeTasks = tasks.filter((t: any) => (t.actualMinutes || 0) > 0);
+  if (activeTasks.length === 0) {
+    return [];
+  }
 
-  return [
-    {
-      id: `sched-1-${dayNumber}`,
-      sessionIndex: 1,
-      startTime: d1Start.toISOString(),
-      endTime: d1End.toISOString(),
-      displayTimeRange: "09:00 AM – 10:30 AM",
-      startTimeFormatted: "09:00 AM",
-      endTimeFormatted: "10:30 AM",
-      durationMinutes: 90,
-      durationHours: 1.5,
-      taskTitle: `Target Session 1: ${anchorProblem || "Algorithm Implementation"}`,
-      category: "LeetCode Practice",
-      status: "Scheduled",
-      notes: "Morning 90-minute target study window",
-      isManual: false,
-    },
-    {
-      id: `sched-2-${dayNumber}`,
-      sessionIndex: 2,
-      startTime: d2Start.toISOString(),
-      endTime: d2End.toISOString(),
-      displayTimeRange: "02:00 PM – 03:30 PM",
-      startTimeFormatted: "02:00 PM",
-      endTimeFormatted: "03:30 PM",
-      durationMinutes: 90,
-      durationHours: 1.5,
-      taskTitle: "Target Session 2: CS Fundamentals, System Design & Recall",
-      category: "CS Fundamentals",
-      status: "Scheduled",
-      notes: "Afternoon 90-minute target study window",
-      isManual: false,
-    },
-  ];
+  const baseDate = dayDateStr || "2026-10-14";
+  let runningTime = new Date(`${baseDate}T09:00:00`);
+
+  return activeTasks.map((t: any, idx: number) => {
+    const durationMin = Number(t.actualMinutes);
+    const sStart = new Date(runningTime);
+    const sEnd = new Date(sStart.getTime() + durationMin * 60 * 1000);
+    runningTime = new Date(sEnd.getTime() + 15 * 60 * 1000); // 15m gap
+
+    const startFmt = formatTime12h(sStart);
+    const endFmt = formatTime12h(sEnd);
+
+    return {
+      id: `task-session-${dayNumber}-${t.id || idx}`,
+      sessionIndex: idx + 1,
+      startTime: sStart.toISOString(),
+      endTime: sEnd.toISOString(),
+      displayTimeRange: `${startFmt} – ${endFmt}`,
+      startTimeFormatted: startFmt,
+      endTimeFormatted: endFmt,
+      durationMinutes: durationMin,
+      durationHours: Number((durationMin / 60).toFixed(1)),
+      taskTitle: t.title,
+      category: t.category || "Study Task",
+      status: t.status === "Completed" ? "Completed" : "Logged",
+      notes: `Recorded study time: ${durationMin}m on ${t.title}`,
+      isManual: true,
+    };
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -263,8 +203,17 @@ export async function GET(request: NextRequest) {
           deliverable: sDay.deliverable || dbMatch.deliverable,
           completionCriterion: sDay.completionCriterion || dbMatch.completionCriterion,
           totalPlannedMinutes: dbMatch.totalPlannedMinutes || sDay.totalPlannedMinutes || 180,
-          actualMinutes: dbMatch.actualMinutes || 0,
-          status: dbMatch.status || "Not Started",
+          actualMinutes: Math.max(
+            dbMatch.actualMinutes || 0,
+            (dbMatch.sessions || []).reduce((sum: number, s: any) => {
+              const sec = s.activeSeconds || s.elapsedSeconds || 0;
+              return sum + (sec >= 15 ? Math.max(1, Math.round(sec / 60)) : Math.round(sec / 60));
+            }, 0)
+          ),
+          status:
+            (dbMatch.actualMinutes || 0) > 0 || (dbMatch.sessions || []).length > 0
+              ? (dbMatch.status === "Not Started" ? "In Progress" : dbMatch.status)
+              : (dbMatch.status || "Not Started"),
           confidenceRating: dbMatch.confidenceRating || 0,
           tasks: (dbMatch.tasks && dbMatch.tasks.length > 0) ? dbMatch.tasks : (sDay.tasks || []),
           rawSessions: dbMatch.sessions || [],

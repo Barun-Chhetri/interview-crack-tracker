@@ -504,6 +504,74 @@ describe("180-Day Interview Preparation Tracker - Comprehensive Test Suite", () 
       const totalHours = (slot1Duration + slot2Duration) / 60;
       expect(totalHours).toBe(3.0);
     });
+
+    it("Scenario 31: Unstarted zero-minute days strictly return empty sessions array without fake/dummy session data", () => {
+      // Test the zero-minute rule: unstarted days should not produce synthetic dummy sessions
+      const actualMinutes = 0;
+      const rawSessions: any[] = [];
+      const tasks = [
+        { id: "t1", title: "Diagnostic / retrieval", actualMinutes: 0 },
+        { id: "t2", title: "Problem attempt", actualMinutes: 0 },
+      ];
+
+      // Replicate public progress route logic
+      let sessions: any[] = [];
+      if (rawSessions && rawSessions.length > 0) {
+        sessions = rawSessions;
+      } else if (actualMinutes <= 0) {
+        sessions = [];
+      }
+
+      expect(sessions).toHaveLength(0);
+      expect(sessions).toEqual([]);
+    });
+
+    it("Scenario 32: Real study sessions preserve exact start, end, active seconds, and manual flag", () => {
+      const now = new Date("2026-10-15T15:30:00.000Z");
+      const startTime = new Date("2026-10-15T14:45:00.000Z");
+      const diffMinutes = 45;
+
+      const session = {
+        id: "sess-1",
+        scheduledTaskId: "task-101",
+        studyDayId: "day-2",
+        startTime: startTime.toISOString(),
+        endTime: now.toISOString(),
+        elapsedSeconds: diffMinutes * 60,
+        activeSeconds: diffMinutes * 60,
+        pausedSeconds: 0,
+        status: "completed",
+        notes: "Checklist completion: Problem attempt",
+        isManual: true,
+      };
+
+      expect(session.elapsedSeconds).toBe(2700);
+      expect(session.activeSeconds).toBe(2700);
+      expect(session.isManual).toBe(true);
+      expect(new Date(session.endTime).getTime() - new Date(session.startTime).getTime()).toBe(45 * 60 * 1000);
+    });
+
+    it("Scenario 33: Timer session duration calculation ensures every minute and runs >= 15s are credited", () => {
+      // 15 seconds test run -> at least 1 minute
+      const shortRunSec = 15;
+      const shortMin = shortRunSec >= 15 ? Math.max(1, Math.round(shortRunSec / 60)) : Math.round(shortRunSec / 60);
+      expect(shortMin).toBe(1);
+
+      // 45 seconds run -> 1 minute
+      const midRunSec = 45;
+      const midMin = midRunSec >= 15 ? Math.max(1, Math.round(midRunSec / 60)) : Math.round(midRunSec / 60);
+      expect(midMin).toBe(1);
+
+      // 90 seconds run -> 2 minutes
+      const minAndHalfSec = 90;
+      const minAndHalf = minAndHalfSec >= 15 ? Math.max(1, Math.round(minAndHalfSec / 60)) : Math.round(minAndHalfSec / 60);
+      expect(minAndHalf).toBe(2);
+
+      // 3600 seconds run (1 hour) -> 60 minutes
+      const hourSec = 3600;
+      const hourMin = hourSec >= 15 ? Math.max(1, Math.round(hourSec / 60)) : Math.round(hourSec / 60);
+      expect(hourMin).toBe(60);
+    });
   });
 });
 

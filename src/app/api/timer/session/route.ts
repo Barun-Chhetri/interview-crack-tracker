@@ -18,15 +18,18 @@ export async function POST(request: NextRequest) {
     } = body;
 
     const activeSec = Number(activeSeconds || elapsedSeconds || 0);
-    const activeMin = Math.round(activeSec / 60);
+    const activeMin = activeSec >= 15 ? Math.max(1, Math.round(activeSec / 60)) : Math.round(activeSec / 60);
 
     // Create session record
+    const sEnd = endTime ? new Date(endTime) : new Date();
+    const sStart = startTime ? new Date(startTime) : new Date(sEnd.getTime() - activeSec * 1000);
+
     const session = await prisma.studySession.create({
       data: {
         scheduledTaskId: scheduledTaskId || null,
         studyDayId: studyDayId || null,
-        startTime: startTime ? new Date(startTime) : new Date(),
-        endTime: endTime ? new Date(endTime) : new Date(),
+        startTime: sStart,
+        endTime: sEnd,
         elapsedSeconds: Number(elapsedSeconds || activeSec),
         activeSeconds: activeSec,
         pausedSeconds: Number(pausedSeconds || 0),

@@ -188,6 +188,7 @@ export interface ActiveTimerState {
   dayNumber: number | null;
   sessionId: string | null;
   startTimestamp: number | null; // Date.now() when last started/resumed
+  sessionStartTimestamp?: number | null; // Date.now() when session was first started
   accumulatedSeconds: number; // Active seconds accumulated before last resume
   lastPausedTimestamp: number | null;
 }

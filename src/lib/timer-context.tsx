@@ -27,6 +27,7 @@ const initialTimerState: ActiveTimerState = {
   dayNumber: null,
   sessionId: null,
   startTimestamp: null,
+  sessionStartTimestamp: null,
   accumulatedSeconds: 0,
   lastPausedTimestamp: null,
 };
@@ -101,6 +102,7 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
         dayNumber: task.dayNumber,
         sessionId: `sess_${now}`,
         startTimestamp: now,
+        sessionStartTimestamp: now,
         accumulatedSeconds: 0,
         lastPausedTimestamp: null,
       };
@@ -147,22 +149,30 @@ export function TimerProvider({ children }: { children: React.ReactNode }) {
 
   const stopTimer = useCallback(
     async (notes?: string) => {
-      const activeSec = calculateElapsedSeconds(timer, Date.now());
-      const activeMin = Math.round(activeSec / 60);
+      const now = Date.now();
+      const activeSec = calculateElapsedSeconds(timer, now);
+      const activeMin = activeSec >= 15 ? Math.max(1, Math.round(activeSec / 60)) : Math.round(activeSec / 60);
 
       if (activeSec > 0 && timer.taskId) {
         try {
+          const sessionStart = timer.sessionStartTimestamp
+            ? new Date(timer.sessionStartTimestamp)
+            : new Date(now - activeSec * 1000);
+          const sessionEnd = new Date(now);
+          const wallElapsedSec = Math.max(activeSec, Math.round((sessionEnd.getTime() - sessionStart.getTime()) / 1000));
+          const pausedSec = Math.max(0, wallElapsedSec - activeSec);
+
           await fetch("/api/timer/session", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               scheduledTaskId: timer.taskId,
               studyDayId: timer.studyDayId,
-              startTime: timer.startTimestamp ? new Date(timer.startTimestamp).toISOString() : new Date().toISOString(),
-              endTime: new Date().toISOString(),
-              elapsedSeconds: activeSec,
+              startTime: sessionStart.toISOString(),
+              endTime: sessionEnd.toISOString(),
+              elapsedSeconds: wallElapsedSec,
               activeSeconds: activeSec,
-              pausedSeconds: 0,
+              pausedSeconds: pausedSec,
               notes: notes || "Timer study session",
               isManual: false,
             }),

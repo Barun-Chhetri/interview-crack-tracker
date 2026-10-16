@@ -36,6 +36,35 @@ export async function PATCH(
       newRemaining = newPlanned;
     }
 
+    const diffMinutes = newActual - task.actualMinutes;
+    if (diffMinutes > 0) {
+      const now = new Date();
+      const sStart = new Date(now.getTime() - diffMinutes * 60 * 1000);
+      await prisma.studySession.create({
+        data: {
+          scheduledTaskId: task.id,
+          studyDayId: task.studyDayId,
+          startTime: sStart,
+          endTime: now,
+          elapsedSeconds: diffMinutes * 60,
+          activeSeconds: diffMinutes * 60,
+          pausedSeconds: 0,
+          status: "completed",
+          notes: notes || (newStatus === "Completed" ? `Completed task: ${task.title}` : `Logged ${diffMinutes}m on task: ${task.title}`),
+          isManual: true,
+          auditLog: `Task checklist progress update (+${diffMinutes}m)`,
+        },
+      });
+    } else if (newActual === 0 && task.actualMinutes > 0) {
+      // User unchecked task or reset to 0; clean up manual sessions for this task
+      await prisma.studySession.deleteMany({
+        where: {
+          scheduledTaskId: task.id,
+          isManual: true,
+        },
+      });
+    }
+
     const updatedTask = await prisma.scheduledTask.update({
       where: { id },
       data: {

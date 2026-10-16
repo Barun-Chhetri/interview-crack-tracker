@@ -485,29 +485,39 @@ export function PublicProgressView() {
                   {/* Mode 1: Start Time & End Time Breakdown */}
                   {todayTimeViewMode === "sessions" && (
                     <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                      {(todayDay.sessions || []).map((session, sIdx) => (
-                        <div
-                          key={session.id || sIdx}
-                          className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition text-xs space-y-1"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-white flex items-center gap-1.5 font-mono text-[11px]">
-                              <Clock className="w-3 h-3 text-indigo-400" />
-                              {session.displayTimeRange}
-                            </span>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-                              {session.durationMinutes}m ({session.durationHours}h)
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-300 font-medium truncate">
-                            {session.taskTitle}
+                      {(todayDay.sessions || []).length === 0 ? (
+                        <div className="p-4 rounded-xl bg-slate-900/60 border border-dashed border-slate-800 text-center space-y-1">
+                          <Clock className="w-5 h-5 text-slate-500 mx-auto" />
+                          <p className="text-xs text-slate-300 font-medium">No study sessions recorded yet today</p>
+                          <p className="text-[11px] text-slate-500">
+                            Every minute spent running the timer or checking off tasks is audited here with start & end timestamps.
                           </p>
-                          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
-                            <span className="text-indigo-300">{session.category}</span>
-                            <span className="text-slate-400">{session.status}</span>
-                          </div>
                         </div>
-                      ))}
+                      ) : (
+                        (todayDay.sessions || []).map((session, sIdx) => (
+                          <div
+                            key={session.id || sIdx}
+                            className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition text-xs space-y-1"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-white flex items-center gap-1.5 font-mono text-[11px]">
+                                <Clock className="w-3 h-3 text-indigo-400" />
+                                {session.displayTimeRange}
+                              </span>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+                                {session.durationMinutes}m ({session.durationHours}h)
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-300 font-medium truncate">
+                              {session.taskTitle}
+                            </p>
+                            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                              <span className="text-indigo-300">{session.category}</span>
+                              <span className="text-slate-400">{session.status}</span>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   )}
 
@@ -981,29 +991,35 @@ export function PublicProgressView() {
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {(day.sessions || []).map((sess, sIdx) => (
-                              <div
-                                key={sess.id || sIdx}
-                                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs"
-                              >
-                                <div className="space-y-0.5 min-w-0 pr-2">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="font-mono font-bold text-white text-[11px]">
-                                      {sess.displayTimeRange}
-                                    </span>
-                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-400">
-                                      {sess.durationMinutes}m
-                                    </span>
-                                  </div>
-                                  <p className="text-[11px] text-slate-300 truncate">
-                                    {sess.taskTitle}
-                                  </p>
-                                </div>
-                                <span className="text-[10px] text-slate-400 shrink-0">
-                                  {sess.status}
-                                </span>
+                            {(day.sessions || []).length === 0 ? (
+                              <div className="col-span-full p-3 rounded-xl bg-slate-900/40 border border-dashed border-slate-800 text-center">
+                                <span className="text-xs text-slate-500">No study sessions recorded for this day (0m logged).</span>
                               </div>
-                            ))}
+                            ) : (
+                              (day.sessions || []).map((sess, sIdx) => (
+                                <div
+                                  key={sess.id || sIdx}
+                                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs"
+                                >
+                                  <div className="space-y-0.5 min-w-0 pr-2">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-mono font-bold text-white text-[11px]">
+                                        {sess.displayTimeRange}
+                                      </span>
+                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-400">
+                                        {sess.durationMinutes}m
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-300 truncate">
+                                      {sess.taskTitle}
+                                    </p>
+                                  </div>
+                                  <span className="text-[10px] text-slate-400 shrink-0">
+                                    {sess.status}
+                                  </span>
+                                </div>
+                              ))
+                            )}
                           </div>
                         </div>
 
@@ -1130,46 +1146,56 @@ export function PublicProgressView() {
                 </h4>
 
                 <div className="space-y-3">
-                  {(sessionModalDay.sessions || []).map((session, sIdx) => (
-                    <div
-                      key={session.id || sIdx}
-                      className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2 relative overflow-hidden"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold text-xs flex items-center justify-center">
-                            {sIdx + 1}
-                          </span>
-                          <span className="font-extrabold text-sm font-mono text-white">
-                            {session.displayTimeRange}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                            {session.durationMinutes} min ({session.durationHours} hrs)
-                          </span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300">
-                            {session.status}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="pt-1">
-                        <div className="text-xs font-bold text-slate-200">
-                          {session.taskTitle}
-                        </div>
-                        <div className="text-[11px] text-indigo-300/80 mt-0.5">
-                          Category: {session.category}
-                        </div>
-                        {session.notes && (
-                          <p className="text-xs text-slate-400 mt-1.5 p-2 rounded-lg bg-slate-900 border border-slate-800/80">
-                            {session.notes}
-                          </p>
-                        )}
-                      </div>
+                  {(sessionModalDay.sessions || []).length === 0 ? (
+                    <div className="p-8 rounded-2xl bg-slate-950/60 border border-dashed border-slate-800 text-center space-y-2">
+                      <Clock className="w-8 h-8 text-slate-600 mx-auto" />
+                      <p className="text-sm font-semibold text-slate-300">No study sessions recorded for Day {sessionModalDay.dayNumber}</p>
+                      <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                        This day currently has 0 minutes of verified study time. Once the focus timer runs or tasks are checked off, audited sessions will appear here.
+                      </p>
                     </div>
-                  ))}
+                  ) : (
+                    (sessionModalDay.sessions || []).map((session, sIdx) => (
+                      <div
+                        key={session.id || sIdx}
+                        className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2 relative overflow-hidden"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold text-xs flex items-center justify-center">
+                              {sIdx + 1}
+                            </span>
+                            <span className="font-extrabold text-sm font-mono text-white">
+                              {session.displayTimeRange}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                              {session.durationMinutes} min ({session.durationHours} hrs)
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300">
+                              {session.status}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="pt-1">
+                          <div className="text-xs font-bold text-slate-200">
+                            {session.taskTitle}
+                          </div>
+                          <div className="text-[11px] text-indigo-300/80 mt-0.5">
+                            Category: {session.category}
+                          </div>
+                          {session.notes && (
+                            <p className="text-xs text-slate-400 mt-1.5 p-2 rounded-lg bg-slate-900 border border-slate-800/80">
+                              {session.notes}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 

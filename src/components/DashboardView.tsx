@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { StudyDayDTO } from "@/lib/types";
 import { useTimer } from "@/lib/timer-context";
+import { useAuth } from "@/lib/auth-context";
 import {
   Clock,
   Target,
@@ -18,6 +19,8 @@ import {
   Layers,
   ExternalLink,
   Share2,
+  Copy,
+  Check,
 } from "lucide-react";
 
 interface DashboardViewProps {
@@ -59,6 +62,17 @@ export function DashboardView({
   loadError,
 }: DashboardViewProps) {
   const { startTimer, timer } = useTimer();
+  const { user } = useAuth();
+  const [copiedShareLink, setCopiedShareLink] = useState(false);
+
+  const handleCopyShareLink = () => {
+    if (typeof window !== "undefined") {
+      const shareUrl = `${window.location.origin}/share`;
+      navigator.clipboard.writeText(shareUrl);
+      setCopiedShareLink(true);
+      setTimeout(() => setCopiedShareLink(false), 2500);
+    }
+  };
 
   if (loadError && !currentDay) {
     return (
@@ -145,19 +159,64 @@ export function DashboardView({
               <ArrowRight className="w-4 h-4" />
               Carryover Planner
             </button>
-            <Link
-              href="/share"
-              target="_blank"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 font-semibold text-sm transition-all cursor-pointer shadow-md"
-              title="Open public recruiter-ready view without login"
-            >
-              <Share2 className="w-4 h-4 text-indigo-400" />
-              <span>Public View</span>
-              <ExternalLink className="w-3.5 h-3.5 text-indigo-300" />
-            </Link>
+            {user && (
+              <Link
+                href="/share"
+                target="_blank"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 font-semibold text-sm transition-all cursor-pointer shadow-md"
+                title="Open public recruiter-ready view (no login required for viewers)"
+              >
+                <Share2 className="w-4 h-4 text-indigo-400" />
+                <span>Public View</span>
+                <ExternalLink className="w-3.5 h-3.5 text-indigo-300" />
+              </Link>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Post-Login Public Share Card (Visible ONLY after login) */}
+      {user && (
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-950/70 via-slate-900 to-slate-900 border border-indigo-500/30 p-5 shadow-xl">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5">
+                  <Share2 className="w-3.5 h-3.5" /> Public Share URL
+                </span>
+                <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Ready for Recruiters, Interviewers & Study Peers
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-white">
+                Share this audited progress page with recruiters, interviewers, and study peers.
+              </h3>
+              <p className="text-xs text-slate-300">
+                Anyone with your link can view your daily time log, progress, and problems solved today without needing an account.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                onClick={handleCopyShareLink}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition cursor-pointer"
+              >
+                {copiedShareLink ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedShareLink ? "Link Copied to Clipboard!" : "Copy Share Link"}</span>
+              </button>
+
+              <Link
+                href="/share"
+                target="_blank"
+                className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold transition cursor-pointer"
+              >
+                <span>View Public Page</span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 4 Primary KPI Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

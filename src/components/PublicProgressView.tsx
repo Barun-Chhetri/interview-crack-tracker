@@ -6,26 +6,17 @@ import {
   Clock,
   CheckCircle2,
   Calendar,
-  Share2,
-  Copy,
-  Check,
-  ExternalLink,
   Search,
-  Filter,
   Sparkles,
   ChevronDown,
   ChevronUp,
   Target,
   Flame,
-  Award,
   Layers,
-  ArrowRight,
   BookOpen,
   Code2,
-  Brain,
   RefreshCw,
 } from "lucide-react";
-import Link from "next/link";
 
 interface PublicStudent {
   name: string;
@@ -131,7 +122,6 @@ export function PublicProgressView() {
   const [phases, setPhases] = useState<PublicPhase[]>([]);
   const [days, setDays] = useState<PublicDay[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [copiedLink, setCopiedLink] = useState(false);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -162,37 +152,20 @@ export function PublicProgressView() {
     fetchPublicProgress();
   }, []);
 
-  const handleCopyLink = () => {
-    if (typeof window !== "undefined") {
-      const shareUrl = window.location.href;
-      navigator.clipboard.writeText(shareUrl);
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2500);
-    }
-  };
+  // Compute Today's Problem / Active Study Day
+  const todayDay = useMemo(() => {
+    if (days.length === 0) return null;
+    const todayStr = new Date().toISOString().split("T")[0];
+    const exactDateMatch = days.find((d) => d.date === todayStr);
+    if (exactDateMatch) return exactDateMatch;
 
-  const handleShareLinkedIn = () => {
-    if (typeof window !== "undefined") {
-      const shareUrl = encodeURIComponent(window.location.href);
-      const title = encodeURIComponent(
-        `${student.name}'s 180-Day SWE Interview Preparation & Daily Study Log (Summer 2027 SWE Intern Target)`
-      );
-      window.open(
-        `https://www.linkedin.com/sharing/share-offsite/?url=${shareUrl}&title=${title}`,
-        "_blank"
-      );
-    }
-  };
+    // Check last day with actual study time or completed status
+    const activeOrDone = [...days].reverse().find((d) => d.status === "Completed" || d.actualMinutes > 0);
+    if (activeOrDone) return activeOrDone;
 
-  const handleShareX = () => {
-    if (typeof window !== "undefined") {
-      const shareUrl = encodeURIComponent(window.location.href);
-      const text = encodeURIComponent(
-        `Check out my verified daily time log & LeetCode problems solved across my 180-day SWE Interview Preparation Handbook! 🚀 #100DaysOfCode #LeetCode #SoftwareEngineering`
-      );
-      window.open(`https://twitter.com/intent/tweet?text=${text}&url=${shareUrl}`, "_blank");
-    }
-  };
+    // Default to Day 1
+    return days[0];
+  }, [days]);
 
   // Filtered days list
   const filteredDays = useMemo(() => {
@@ -237,9 +210,9 @@ export function PublicProgressView() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 selection:bg-emerald-500/30 selection:text-emerald-300 font-sans">
-      {/* Top Navigation Bar */}
+      {/* Public Top Header (Clean, Recruiter-Focused, No Internal Controls) */}
       <header className="sticky top-0 z-40 bg-slate-950/90 backdrop-blur-md border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-500 to-emerald-500 text-white shadow-md shadow-indigo-500/20">
               <GraduationCap className="w-5 h-5" />
@@ -249,124 +222,224 @@ export function PublicProgressView() {
                 <span className="font-extrabold text-base tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">
                   {student.name}
                 </span>
-                <span className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-1">
-                  <CheckCircle2 className="w-2.5 h-2.5" /> Public Verified Log
+                <span className="px-2.5 py-0.5 text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Public Verified Study Portfolio
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                {student.university} &bull; <span className="text-emerald-400 font-medium">{student.targetRole}</span>
+                {student.university} &bull; <span className="text-emerald-400 font-semibold">{student.targetRole}</span>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCopyLink}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-600 text-slate-200 text-xs font-semibold transition cursor-pointer shadow-sm"
-              title="Copy shareable link"
-            >
-              {copiedLink ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400">Link Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Copy Link</span>
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={handleShareLinkedIn}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#0077b5]/20 hover:bg-[#0077b5]/30 border border-[#0077b5]/40 text-[#70b5f9] text-xs font-semibold transition cursor-pointer"
-              title="Share on LinkedIn"
-            >
-              <Share2 className="w-3.5 h-3.5" />
-              <span>LinkedIn</span>
-            </button>
-
-            <Link
-              href="/"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-sm shadow-emerald-600/20 cursor-pointer"
-            >
-              <span>Open App</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </Link>
+          {/* Verification Badge */}
+          <div className="flex items-center gap-2 text-xs">
+            <div className="hidden md:flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-slate-300">
+              <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Oct 14, 2026 – Apr 11, 2027</span>
+            </div>
+            <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-1.5 text-emerald-300 font-semibold">
+              <Target className="w-3.5 h-3.5 text-emerald-400" />
+              <span>540 Target Study Hours</span>
+            </div>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8 pb-28">
-        {/* Recruiter / Public Hero Header */}
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950/70 to-slate-900 border border-indigo-500/25 p-6 sm:p-10 shadow-2xl">
+        {/* Candidate Profile Summary Banner */}
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950/60 to-slate-900 border border-indigo-500/25 p-6 sm:p-8 shadow-2xl">
           <div className="absolute right-0 top-0 -mt-16 -mr-16 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative z-10 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-            <div className="space-y-3 max-w-3xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-                <span>180-Day Software Engineering Immersion &bull; 540 Total Target Hours</span>
+          <div className="relative z-10 space-y-3">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs font-semibold">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <span>180-Day Software Engineering Immersion &bull; Daily Time Log & Problem Mastery</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white tracking-tight">
+              {student.name}'s Daily Study Log & Problem Showcase
+            </h1>
+            <p className="text-sm text-slate-300 max-w-3xl leading-relaxed">
+              An audited, transparent record tracking 3 hours of daily deep-work, LeetCode algorithmic patterns,
+              CS fundamentals, Java DSA implementation, and backend systems preparation for Summer 2027 SWE internships.
+            </p>
+            <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+              <span className="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/80 text-slate-300 font-medium">
+                🏫 {student.university}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-medium">
+                🎯 {student.targetRole}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 font-medium">
+                🛂 {student.visaStatus}
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-medium">
+                ⏱️ Target: 3.0h / Day &bull; 21h / Week
+              </span>
+            </div>
+          </div>
+        </section>
+
+        {/* TODAY'S PROBLEM SOLVED & DEEP-WORK LOG (Featured Premier Card) */}
+        {todayDay && (
+          <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 border border-emerald-500/30 p-6 sm:p-8 shadow-2xl">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-slate-800/80">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                      Problem Solved Today & Daily Study Log
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-indigo-300 border border-slate-700">
+                      Program Day {todayDay.dayNumber} of 180
+                    </span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                    {todayDay.anchorProblem || todayDay.topic}
+                  </h2>
+                </div>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-                {student.name}'s Daily Study Log & Problem Showcase
-              </h1>
-              <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-                A transparent, audited timeline tracking 3 hours of daily deep-work, LeetCode patterns,
-                Java DSA mastery, CS fundamentals, backend distributed systems, and Summer 2027 internship readiness.
-              </p>
-              <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
-                <span className="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/80 text-slate-300 font-medium">
-                  🏫 {student.university}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-400 font-medium px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700">
+                  📅 {todayDay.displayDate}
                 </span>
-                <span className="px-2.5 py-1 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-medium">
-                  🎯 {student.targetRole}
+                <span
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                    todayDay.anchorDifficulty === "Easy"
+                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                      : todayDay.anchorDifficulty === "Hard"
+                      ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                      : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                  }`}
+                >
+                  {todayDay.anchorDifficulty || "Medium"}
                 </span>
-                <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 font-medium">
-                  🛂 {student.visaStatus}
-                </span>
-                <span className="px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700/80 text-slate-400 font-medium">
-                  📅 Oct 14, 2026 – Apr 11, 2027
+                {todayDay.anchorPattern && (
+                  <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                    Pattern: {todayDay.anchorPattern}
+                  </span>
+                )}
+                <span
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                    todayDay.status === "Completed"
+                      ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                      : todayDay.status === "In Progress"
+                      ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/30"
+                      : "bg-slate-800 text-slate-300 border-slate-700"
+                  }`}
+                >
+                  {todayDay.status}
                 </span>
               </div>
             </div>
 
-            {/* Quick Share / Link Action Card */}
-            <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 sm:p-5 w-full lg:w-72 space-y-3 shadow-xl shrink-0">
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                <span>Public Share URL</span>
-                <Share2 className="w-3.5 h-3.5 text-indigo-400" />
+            {/* Side-by-side details: Left is problem breakdown, Right is time spent log */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-6">
+              {/* Left 2 Cols: Problem Invariant & Strategy */}
+              <div className="lg:col-span-2 space-y-4">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    Topic & Core Invariant
+                  </span>
+                  <p className="text-sm text-slate-200 font-medium">
+                    <strong className="text-emerald-400">{todayDay.phase}:</strong> {todayDay.topic}
+                  </p>
+                  <p className="text-xs text-slate-300 leading-relaxed pt-1">
+                    {todayDay.learningObjective}
+                  </p>
+                </div>
+
+                {todayDay.anchorInstructions && (
+                  <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 text-xs space-y-1">
+                    <span className="font-bold text-indigo-300 uppercase tracking-wider text-[10px]">
+                      Algorithmic Approach & Key Decision Rule
+                    </span>
+                    <p className="text-slate-300 leading-relaxed">
+                      {todayDay.anchorInstructions}
+                    </p>
+                  </div>
+                )}
+
+                {todayDay.deliverable && (
+                  <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs flex flex-wrap items-baseline gap-2">
+                    <strong className="text-emerald-400 font-bold shrink-0">Exit Deliverable:</strong>
+                    <span className="text-slate-300">{todayDay.deliverable}</span>
+                  </div>
+                )}
               </div>
-              <p className="text-xs text-slate-300">
-                Share this audited progress page with recruiters, interviewers, and study peers.
-              </p>
-              <div className="flex flex-col gap-2">
-                <button
-                  onClick={handleCopyLink}
-                  className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition cursor-pointer"
-                >
-                  {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  <span>{copiedLink ? "Link Copied to Clipboard!" : "Copy Share Link"}</span>
-                </button>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={handleShareLinkedIn}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 transition cursor-pointer"
-                  >
-                    <span>LinkedIn</span>
-                  </button>
-                  <button
-                    onClick={handleShareX}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 transition cursor-pointer"
-                  >
-                    <span>X / Twitter</span>
-                  </button>
+
+              {/* Right Col: Today's Time Log */}
+              <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Time Logged Today
+                    </span>
+                    <Clock className="w-4 h-4 text-emerald-400" />
+                  </div>
+
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <span className="text-3xl font-extrabold font-mono text-white">
+                      {todayDay.actualHours}h
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      / {todayDay.plannedHours}h Planned Target
+                    </span>
+                  </div>
+
+                  <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mb-2">
+                    <div
+                      className={`h-full transition-all duration-500 ${
+                        todayDay.actualMinutes >= 180 ? "bg-emerald-500" : todayDay.actualMinutes > 0 ? "bg-indigo-500" : "bg-slate-700"
+                      }`}
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.round((todayDay.actualMinutes / (todayDay.totalPlannedMinutes || 180)) * 100)
+                        )}%`,
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">{todayDay.actualMinutes} min logged</span>
+                    <span
+                      className={`font-bold ${
+                        todayDay.actualMinutes >= 180 ? "text-emerald-400" : "text-amber-400"
+                      }`}
+                    >
+                      {todayDay.actualMinutes >= 180
+                        ? "✓ 3h Target Met!"
+                        : `${Math.round((todayDay.actualMinutes / (todayDay.totalPlannedMinutes || 180)) * 100)}% Target`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Sub-task allocation preview */}
+                <div className="pt-3 border-t border-slate-800/80 space-y-2">
+                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex justify-between">
+                    <span>Today's Task Breakdown</span>
+                    <span>{todayDay.completedTasksCount} / {todayDay.totalTasksCount} Done</span>
+                  </div>
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {todayDay.tasks.slice(0, 4).map((t, i) => (
+                      <div key={i} className="flex items-center justify-between text-xs text-slate-300">
+                        <span className="truncate pr-2">{t.title}</span>
+                        <span className="font-mono text-slate-400 shrink-0">
+                          {t.actualMinutes}m / {t.plannedMinutes}m
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* 4 High-Level Progress KPI Summary Cards */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -566,10 +639,10 @@ export function PublicProgressView() {
             <div>
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 <Clock className="w-5 h-5 text-emerald-400" />
-                <span>Daily Time Log & Problem Solved Log</span>
+                <span>Daily Time Log & Problem Solved Log (All 180 Days)</span>
               </h2>
               <p className="text-xs text-slate-400">
-                Audited record of time spent per day, anchor problem solved, algorithmic pattern, and task completion.
+                Audited timeline of hours studied per day, anchor problem solved, algorithmic pattern, and task breakdown.
               </p>
             </div>
 

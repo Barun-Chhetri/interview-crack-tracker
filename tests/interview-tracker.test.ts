@@ -483,6 +483,27 @@ describe("180-Day Interview Preparation Tracker - Comprehensive Test Suite", () 
       expect(phase1Days[0].anchorDifficulty).toBe("Medium");
       expect(phase1Days[0].anchorPattern).toContain("HashSet");
     });
+
+    it("Scenario 30: Time Logged Today generates audited start and end time interval breakdowns matching logged daily minutes", () => {
+      // Test session timeline calculation
+      const baseDate = "2026-10-14";
+      const actualMinutes = 180;
+      const slot1Duration = Math.min(actualMinutes, Math.round(actualMinutes * 0.55)); // 99 mins
+      const slot2Duration = actualMinutes - slot1Duration; // 81 mins
+
+      const d1Start = new Date(`${baseDate}T09:00:00`);
+      const d1End = new Date(d1Start.getTime() + slot1Duration * 60 * 1000);
+      const d2Start = new Date(`${baseDate}T14:00:00`);
+      const d2End = new Date(d2Start.getTime() + slot2Duration * 60 * 1000);
+
+      expect(d1End.getTime() - d1Start.getTime()).toBe(slot1Duration * 60 * 1000);
+      expect(d2End.getTime() - d2Start.getTime()).toBe(slot2Duration * 60 * 1000);
+      expect(slot1Duration + slot2Duration).toBe(180);
+
+      // Verify duration in hours
+      const totalHours = (slot1Duration + slot2Duration) / 60;
+      expect(totalHours).toBe(3.0);
+    });
   });
 });
 

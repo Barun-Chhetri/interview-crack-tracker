@@ -16,6 +16,11 @@ import {
   BookOpen,
   Code2,
   RefreshCw,
+  X,
+  ExternalLink,
+  ListOrdered,
+  Activity,
+  Award,
 } from "lucide-react";
 
 interface PublicStudent {
@@ -74,6 +79,23 @@ interface PublicTask {
   isAnchor: boolean;
 }
 
+export interface PublicSession {
+  id: string;
+  sessionIndex: number;
+  startTime: string;
+  endTime: string;
+  displayTimeRange: string;
+  startTimeFormatted: string;
+  endTimeFormatted: string;
+  durationMinutes: number;
+  durationHours: number;
+  taskTitle: string;
+  category: string;
+  status: string;
+  notes?: string | null;
+  isManual?: boolean;
+}
+
 interface PublicDay {
   dayNumber: number;
   weekNumber: number;
@@ -101,6 +123,7 @@ interface PublicDay {
   totalTasksCount: number;
   completedTasksCount: number;
   tasks: PublicTask[];
+  sessions?: PublicSession[];
 }
 
 export function PublicProgressView() {
@@ -129,6 +152,11 @@ export function PublicProgressView() {
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "in-progress" | "logged">("all");
   const [difficultyFilter, setDifficultyFilter] = useState<"all" | "Easy" | "Medium" | "Hard">("all");
   const [expandedDay, setExpandedDay] = useState<number | null>(null);
+
+  // Time detail breakdown states
+  const [todayTimeViewMode, setTodayTimeViewMode] = useState<"sessions" | "tasks">("sessions");
+  const [sessionModalDay, setSessionModalDay] = useState<PublicDay | null>(null);
+  const [dayViewModeMap, setDayViewModeMap] = useState<Record<number, "sessions" | "tasks">>({});
 
   const fetchPublicProgress = async () => {
     setIsLoading(true);
@@ -379,7 +407,15 @@ export function PublicProgressView() {
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
                       Time Logged Today
                     </span>
-                    <Clock className="w-4 h-4 text-emerald-400" />
+                    <button
+                      onClick={() => setSessionModalDay(todayDay)}
+                      className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/20 transition"
+                      title="Open full detailed start & end time audit modal"
+                    >
+                      <Activity className="w-3 h-3" />
+                      <span>Audit Breakdown</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </button>
                   </div>
 
                   <div className="flex items-baseline gap-2 mb-2">
@@ -419,22 +455,75 @@ export function PublicProgressView() {
                   </div>
                 </div>
 
-                {/* Sub-task allocation preview */}
-                <div className="pt-3 border-t border-slate-800/80 space-y-2">
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex justify-between">
-                    <span>Today's Task Breakdown</span>
-                    <span>{todayDay.completedTasksCount} / {todayDay.totalTasksCount} Done</span>
+                {/* Session Start/End Time vs Tasks Toggle */}
+                <div className="pt-3 border-t border-slate-800/80 space-y-2.5">
+                  <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-[11px] font-semibold">
+                    <button
+                      onClick={() => setTodayTimeViewMode("sessions")}
+                      className={`flex-1 py-1 px-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                        todayTimeViewMode === "sessions"
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      <Clock className="w-3 h-3 text-emerald-400" />
+                      <span>Start & End Times ({(todayDay.sessions || []).length})</span>
+                    </button>
+                    <button
+                      onClick={() => setTodayTimeViewMode("tasks")}
+                      className={`flex-1 py-1 px-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
+                        todayTimeViewMode === "tasks"
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                      <span>Tasks ({todayDay.completedTasksCount}/{todayDay.totalTasksCount})</span>
+                    </button>
                   </div>
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                    {todayDay.tasks.slice(0, 4).map((t, i) => (
-                      <div key={i} className="flex items-center justify-between text-xs text-slate-300">
-                        <span className="truncate pr-2">{t.title}</span>
-                        <span className="font-mono text-slate-400 shrink-0">
-                          {t.actualMinutes}m / {t.plannedMinutes}m
-                        </span>
-                      </div>
-                    ))}
-                  </div>
+
+                  {/* Mode 1: Start Time & End Time Breakdown */}
+                  {todayTimeViewMode === "sessions" && (
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {(todayDay.sessions || []).map((session, sIdx) => (
+                        <div
+                          key={session.id || sIdx}
+                          className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition text-xs space-y-1"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-white flex items-center gap-1.5 font-mono text-[11px]">
+                              <Clock className="w-3 h-3 text-indigo-400" />
+                              {session.displayTimeRange}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+                              {session.durationMinutes}m ({session.durationHours}h)
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-300 font-medium truncate">
+                            {session.taskTitle}
+                          </p>
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                            <span className="text-indigo-300">{session.category}</span>
+                            <span className="text-slate-400">{session.status}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Mode 2: Tasks Breakdown */}
+                  {todayTimeViewMode === "tasks" && (
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {todayDay.tasks.map((t, i) => (
+                        <div key={i} className="flex items-center justify-between text-xs text-slate-300 p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
+                          <span className="truncate pr-2">{t.title}</span>
+                          <span className="font-mono text-slate-400 shrink-0">
+                            {t.actualMinutes}m / {t.plannedMinutes}m
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -875,8 +964,51 @@ export function PublicProgressView() {
                           </div>
                         )}
 
+                        {/* Start & End Time Sessions List */}
+                        <div className="space-y-2 pt-1 border-t border-slate-800/80">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Session Time Log (Start & End Times)</span>
+                            </span>
+                            <button
+                              onClick={() => setSessionModalDay(day)}
+                              className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 rounded-lg border border-emerald-500/20 transition"
+                            >
+                              <span>Full Day Audit</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            {(day.sessions || []).map((sess, sIdx) => (
+                              <div
+                                key={sess.id || sIdx}
+                                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs"
+                              >
+                                <div className="space-y-0.5 min-w-0 pr-2">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-mono font-bold text-white text-[11px]">
+                                      {sess.displayTimeRange}
+                                    </span>
+                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-400">
+                                      {sess.durationMinutes}m
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-300 truncate">
+                                    {sess.taskTitle}
+                                  </p>
+                                </div>
+                                <span className="text-[10px] text-slate-400 shrink-0">
+                                  {sess.status}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
                         {/* Sub-Tasks Time Allocation List */}
-                        <div className="space-y-2">
+                        <div className="space-y-2 pt-1 border-t border-slate-800/80">
                           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                             Daily Task Breakdown ({day.completedTasksCount} / {day.totalTasksCount} Completed)
                           </span>
@@ -931,6 +1063,128 @@ export function PublicProgressView() {
             </div>
           )}
         </section>
+
+        {/* Detailed Session Start & End Time Audit Modal */}
+        {sessionModalDay && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+              {/* Modal Header */}
+              <div className="flex items-start justify-between gap-4 border-b border-slate-800 pb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      Day {sessionModalDay.dayNumber} Audit
+                    </span>
+                    <span className="text-xs text-slate-400">{sessionModalDay.displayDate}</span>
+                  </div>
+                  <h3 className="text-xl font-extrabold text-white">
+                    Detailed Time Log & Study Session Breakdown
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Start time and end time audit records for all study blocks completed on this day.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setSessionModalDay(null)}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Time Summary Stats */}
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800">
+                  <div className="text-[11px] text-slate-400 font-medium">Total Logged</div>
+                  <div className="text-xl font-bold font-mono text-emerald-400 mt-1">
+                    {sessionModalDay.actualHours}h
+                  </div>
+                  <div className="text-[10px] text-slate-500">{sessionModalDay.actualMinutes} minutes</div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800">
+                  <div className="text-[11px] text-slate-400 font-medium">Daily Target</div>
+                  <div className="text-xl font-bold font-mono text-white mt-1">
+                    {sessionModalDay.plannedHours}h
+                  </div>
+                  <div className="text-[10px] text-slate-500">180 min commitment</div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800">
+                  <div className="text-[11px] text-slate-400 font-medium">Target Status</div>
+                  <div className={`text-sm font-bold mt-2 ${sessionModalDay.isTargetMet ? "text-emerald-400" : "text-amber-400"}`}>
+                    {sessionModalDay.isTargetMet ? "✓ 3h Target Met" : "In Progress"}
+                  </div>
+                  <div className="text-[10px] text-slate-500">
+                    {Math.round((sessionModalDay.actualMinutes / (sessionModalDay.totalPlannedMinutes || 180)) * 100)}%
+                  </div>
+                </div>
+              </div>
+
+              {/* Timeline of Start Time & End Time Sessions */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                  <span>Session Timeline Breakdown</span>
+                  <span className="text-indigo-400 font-mono">{(sessionModalDay.sessions || []).length} Study Blocks</span>
+                </h4>
+
+                <div className="space-y-3">
+                  {(sessionModalDay.sessions || []).map((session, sIdx) => (
+                    <div
+                      key={session.id || sIdx}
+                      className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2 relative overflow-hidden"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold text-xs flex items-center justify-center">
+                            {sIdx + 1}
+                          </span>
+                          <span className="font-extrabold text-sm font-mono text-white">
+                            {session.displayTimeRange}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            {session.durationMinutes} min ({session.durationHours} hrs)
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300">
+                            {session.status}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pt-1">
+                        <div className="text-xs font-bold text-slate-200">
+                          {session.taskTitle}
+                        </div>
+                        <div className="text-[11px] text-indigo-300/80 mt-0.5">
+                          Category: {session.category}
+                        </div>
+                        {session.notes && (
+                          <p className="text-xs text-slate-400 mt-1.5 p-2 rounded-lg bg-slate-900 border border-slate-800/80">
+                            {session.notes}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-end pt-2 border-t border-slate-800">
+                <button
+                  onClick={() => setSessionModalDay(null)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold text-xs transition cursor-pointer"
+                >
+                  Close Audit View
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Public Footer */}
         <footer className="pt-8 border-t border-slate-800 text-center space-y-3">

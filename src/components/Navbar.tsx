@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import {
   LayoutDashboard,
@@ -18,6 +19,8 @@ import {
   LogIn,
   LogOut,
   User,
+  Share2,
+  ExternalLink,
 } from "lucide-react";
 
 export type ActiveTab =
@@ -141,6 +144,18 @@ export function Navbar({
             <Flame className="w-3.5 h-3.5 fill-current" />
             <span>Streak: Day {selectedDayNumber}</span>
           </div>
+
+          {/* Public Share Link */}
+          <Link
+            href="/share"
+            target="_blank"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition cursor-pointer"
+            title="Open public shareable view (no login required)"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Public View</span>
+            <ExternalLink className="w-3 h-3 text-indigo-400" />
+          </Link>
 
           {/* Auth Controls */}
           {user ? (

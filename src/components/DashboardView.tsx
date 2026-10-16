@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { StudyDayDTO } from "@/lib/types";
 import { useTimer } from "@/lib/timer-context";
 import {
@@ -16,6 +17,7 @@ import {
   Repeat,
   Layers,
   ExternalLink,
+  Share2,
 } from "lucide-react";
 
 interface DashboardViewProps {
@@ -143,6 +145,16 @@ export function DashboardView({
               <ArrowRight className="w-4 h-4" />
               Carryover Planner
             </button>
+            <Link
+              href="/share"
+              target="_blank"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 font-semibold text-sm transition-all cursor-pointer shadow-md"
+              title="Open public recruiter-ready view without login"
+            >
+              <Share2 className="w-4 h-4 text-indigo-400" />
+              <span>Public View</span>
+              <ExternalLink className="w-3.5 h-3.5 text-indigo-300" />
+            </Link>
           </div>
         </div>
       </div>

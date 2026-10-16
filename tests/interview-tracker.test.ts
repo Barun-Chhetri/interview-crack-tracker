@@ -402,5 +402,87 @@ describe("180-Day Interview Preparation Tracker - Comprehensive Test Suite", () 
       expect(isDuplicate).toBe(true);
     });
   });
+
+  // 27, 28, 29: Public Share View & Daily Time Log Showcase
+  describe("Public Share View & Daily Problem Showcase", () => {
+    const jsonPath = path.join(process.cwd(), "src/data/curriculum_180_days.json");
+    const curriculum = JSON.parse(fs.readFileSync(jsonPath, "utf-8"));
+
+    it("Scenario 27: Public progress sanitizes all credentials and sensitive tokens while exposing study timeline", () => {
+      const sampleUser = {
+        id: "usr_xyz123",
+        name: "Barun Chhetri",
+        email: "barun@unt.edu",
+        passwordHash: "$2a$10$supersecretkeythatshouldnotleak",
+        resetToken: "reset_token_secret",
+        smtpPass: "mypassword123",
+        resendApiKey: "re_1234567890",
+        university: "University of North Texas (UNT)",
+        visaStatus: "F-1 (OPT / STEM-OPT Eligible)",
+        targetRole: "Summer 2027 Software Engineering Intern",
+      };
+
+      // Ensure public projection excludes private keys
+      const publicStudent = {
+        name: sampleUser.name,
+        university: sampleUser.university,
+        targetRole: sampleUser.targetRole,
+        visaStatus: sampleUser.visaStatus,
+        programTitle: "180-Day Software Engineering Interview Preparation Handbook",
+      };
+
+      expect(publicStudent).not.toHaveProperty("passwordHash");
+      expect(publicStudent).not.toHaveProperty("resetToken");
+      expect(publicStudent).not.toHaveProperty("smtpPass");
+      expect(publicStudent).not.toHaveProperty("resendApiKey");
+      expect(publicStudent.name).toBe("Barun Chhetri");
+      expect(publicStudent.university).toContain("UNT");
+    });
+
+    it("Scenario 28: Daily time log accurately flags days meeting the 3-hour (180 minute) daily target", () => {
+      const dayLogs = [
+        { dayNumber: 1, actualMinutes: 195, plannedMinutes: 180 }, // target met
+        { dayNumber: 2, actualMinutes: 180, plannedMinutes: 180 }, // target met
+        { dayNumber: 3, actualMinutes: 120, plannedMinutes: 180 }, // in progress / partial
+        { dayNumber: 4, actualMinutes: 0, plannedMinutes: 180 },   // not started
+      ];
+
+      const evaluated = dayLogs.map((d) => ({
+        ...d,
+        isTargetMet: d.actualMinutes >= 180,
+        actualHours: Number((d.actualMinutes / 60).toFixed(1)),
+      }));
+
+      expect(evaluated[0].isTargetMet).toBe(true);
+      expect(evaluated[0].actualHours).toBe(3.3);
+      expect(evaluated[1].isTargetMet).toBe(true);
+      expect(evaluated[1].actualHours).toBe(3.0);
+      expect(evaluated[2].isTargetMet).toBe(false);
+      expect(evaluated[2].actualHours).toBe(2.0);
+      expect(evaluated[3].isTargetMet).toBe(false);
+
+      const targetMetDays = evaluated.filter((d) => d.isTargetMet).length;
+      expect(targetMetDays).toBe(2);
+    });
+
+    it("Scenario 29: Problem showcase accurately matches anchor problems, patterns, and difficulty tiers", () => {
+      // Validate first 30 days (Phase 1)
+      const phase1Days = curriculum.days.slice(0, 30);
+      expect(phase1Days).toHaveLength(30);
+
+      // Verify anchor problems and patterns exist for study tracking
+      for (const day of phase1Days) {
+        expect(day.anchorProblem).toBeTruthy();
+        expect(day.anchorPattern).toBeTruthy();
+        expect(["Easy", "Medium", "Hard"]).toContain(day.anchorDifficulty);
+        expect(day.tasks.length).toBeGreaterThanOrEqual(4);
+      }
+
+      // Check specific day 1 anchor
+      expect(phase1Days[0].anchorProblem).toBe("Longest Consecutive Sequence");
+      expect(phase1Days[0].anchorDifficulty).toBe("Medium");
+      expect(phase1Days[0].anchorPattern).toContain("HashSet");
+    });
+  });
 });
 

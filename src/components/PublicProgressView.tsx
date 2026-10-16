@@ -89,11 +89,15 @@ export interface PublicSession {
   endTimeFormatted: string;
   durationMinutes: number;
   durationHours: number;
+  logSummary?: string;
   taskTitle: string;
   category: string;
   status: string;
   notes?: string | null;
   isManual?: boolean;
+  problemPart?: string | null;
+  problemPattern?: string | null;
+  problemDifficulty?: string | null;
 }
 
 interface PublicDay {
@@ -153,10 +157,8 @@ export function PublicProgressView() {
   const [difficultyFilter, setDifficultyFilter] = useState<"all" | "Easy" | "Medium" | "Hard">("all");
   const [expandedDay, setExpandedDay] = useState<number | null>(null);
 
-  // Time detail breakdown states
-  const [todayTimeViewMode, setTodayTimeViewMode] = useState<"sessions" | "tasks">("sessions");
+  // Modal state for full session audit
   const [sessionModalDay, setSessionModalDay] = useState<PublicDay | null>(null);
-  const [dayViewModeMap, setDayViewModeMap] = useState<Record<number, "sessions" | "tasks">>({});
 
   const fetchPublicProgress = async () => {
     setIsLoading(true);
@@ -310,49 +312,31 @@ export function PublicProgressView() {
 
         {/* TODAY'S PROBLEM SOLVED & DEEP-WORK LOG (Featured Premier Card) */}
         {todayDay && (
-          <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 border border-emerald-500/30 p-6 sm:p-8 shadow-2xl">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-slate-800/80">
+          <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950/40 border border-emerald-500/30 p-6 sm:p-8 shadow-2xl space-y-6">
+            {/* Header: Day number, date, status, audit button */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-800/80">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
-                  <Sparkles className="w-5 h-5" />
+                  <Clock className="w-5 h-5" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                      Problem Solved Today & Daily Study Log
+                      Daily Study Time Log
                     </span>
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-indigo-300 border border-slate-700">
                       Program Day {todayDay.dayNumber} of 180
                     </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                    {todayDay.anchorProblem || todayDay.topic}
+                    {todayDay.displayDate}
                   </h2>
                 </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-slate-400 font-medium px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700">
-                  📅 {todayDay.displayDate}
-                </span>
                 <span
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
-                    todayDay.anchorDifficulty === "Easy"
-                      ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-                      : todayDay.anchorDifficulty === "Hard"
-                      ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
-                      : "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                  }`}
-                >
-                  {todayDay.anchorDifficulty || "Medium"}
-                </span>
-                {todayDay.anchorPattern && (
-                  <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
-                    Pattern: {todayDay.anchorPattern}
-                  </span>
-                )}
-                <span
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                  className={`px-3 py-1 rounded-xl text-xs font-bold border ${
                     todayDay.status === "Completed"
                       ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
                       : todayDay.status === "In Progress"
@@ -362,72 +346,43 @@ export function PublicProgressView() {
                 >
                   {todayDay.status}
                 </span>
+                <button
+                  onClick={() => setSessionModalDay(todayDay)}
+                  className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 cursor-pointer bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-xl border border-emerald-500/20 transition"
+                  title="Open full detailed start & end time audit modal"
+                >
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>Audit Breakdown</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
-            {/* Side-by-side details: Left is problem breakdown, Right is time spent log */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-6">
-              {/* Left 2 Cols: Problem Invariant & Strategy */}
-              <div className="lg:col-span-2 space-y-4">
-                <div className="space-y-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    Topic & Core Invariant
-                  </span>
-                  <p className="text-sm text-slate-200 font-medium">
-                    <strong className="text-emerald-400">{todayDay.phase}:</strong> {todayDay.topic}
-                  </p>
-                  <p className="text-xs text-slate-300 leading-relaxed pt-1">
-                    {todayDay.learningObjective}
-                  </p>
+            {/* SECTION 1: TIME LOG (Total Time Spent For The Day & Start/End Intervals) */}
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-4 p-5 rounded-2xl bg-slate-950/80 border border-slate-800">
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">
+                    Total Time Spent For The Day
+                  </div>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-3xl sm:text-4xl font-black font-mono text-emerald-400">
+                      {todayDay.actualMinutes > 0 ? `${todayDay.actualMinutes} min spent` : "0 min spent"}
+                    </span>
+                    <span className="text-xs text-slate-400 font-mono">
+                      ({todayDay.actualHours} hrs logged • Planned: {todayDay.plannedHours}h)
+                    </span>
+                  </div>
                 </div>
 
-                {todayDay.anchorInstructions && (
-                  <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 text-xs space-y-1">
-                    <span className="font-bold text-indigo-300 uppercase tracking-wider text-[10px]">
-                      Algorithmic Approach & Key Decision Rule
-                    </span>
-                    <p className="text-slate-300 leading-relaxed">
-                      {todayDay.anchorInstructions}
-                    </p>
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <div className="text-[11px] text-slate-400">Daily 3-Hour Target</div>
+                    <div className={`text-xs font-bold ${todayDay.actualMinutes >= 180 ? "text-emerald-400" : "text-amber-400"}`}>
+                      {todayDay.actualMinutes >= 180 ? "✓ 3h Target Met!" : `${Math.round((todayDay.actualMinutes / (todayDay.totalPlannedMinutes || 180)) * 100)}% Completed`}
+                    </div>
                   </div>
-                )}
-
-                {todayDay.deliverable && (
-                  <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs flex flex-wrap items-baseline gap-2">
-                    <strong className="text-emerald-400 font-bold shrink-0">Exit Deliverable:</strong>
-                    <span className="text-slate-300">{todayDay.deliverable}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Right Col: Today's Time Log */}
-              <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Time Logged Today
-                    </span>
-                    <button
-                      onClick={() => setSessionModalDay(todayDay)}
-                      className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 cursor-pointer bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/20 transition"
-                      title="Open full detailed start & end time audit modal"
-                    >
-                      <Activity className="w-3 h-3" />
-                      <span>Audit Breakdown</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </button>
-                  </div>
-
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className="text-3xl font-extrabold font-mono text-white">
-                      {todayDay.actualHours}h
-                    </span>
-                    <span className="text-xs text-slate-400">
-                      / {todayDay.plannedHours}h Planned Target
-                    </span>
-                  </div>
-
-                  <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden mb-2">
+                  <div className="w-24 bg-slate-800 h-2.5 rounded-full overflow-hidden">
                     <div
                       className={`h-full transition-all duration-500 ${
                         todayDay.actualMinutes >= 180 ? "bg-emerald-500" : todayDay.actualMinutes > 0 ? "bg-indigo-500" : "bg-slate-700"
@@ -440,102 +395,115 @@ export function PublicProgressView() {
                       }}
                     />
                   </div>
+                </div>
+              </div>
 
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">{todayDay.actualMinutes} min logged</span>
-                    <span
-                      className={`font-bold ${
-                        todayDay.actualMinutes >= 180 ? "text-emerald-400" : "text-amber-400"
-                      }`}
-                    >
-                      {todayDay.actualMinutes >= 180
-                        ? "✓ 3h Target Met!"
-                        : `${Math.round((todayDay.actualMinutes / (todayDay.totalPlannedMinutes || 180)) * 100)}% Target`}
-                    </span>
+              {/* Time Log Intervals with explicit Start Time and End Time */}
+              <div className="space-y-2.5">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Time Log Intervals (Start Time & End Time)</span>
                   </div>
+                  <span className="text-[11px] font-mono text-emerald-400">
+                    {(todayDay.sessions || []).length} study block{(todayDay.sessions || []).length === 1 ? "" : "s"}
+                  </span>
                 </div>
 
-                {/* Session Start/End Time vs Tasks Toggle */}
-                <div className="pt-3 border-t border-slate-800/80 space-y-2.5">
-                  <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-[11px] font-semibold">
-                    <button
-                      onClick={() => setTodayTimeViewMode("sessions")}
-                      className={`flex-1 py-1 px-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                        todayTimeViewMode === "sessions"
-                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
-                          : "text-slate-400 hover:text-slate-200"
-                      }`}
-                    >
-                      <Clock className="w-3 h-3 text-emerald-400" />
-                      <span>Start & End Times ({(todayDay.sessions || []).length})</span>
-                    </button>
-                    <button
-                      onClick={() => setTodayTimeViewMode("tasks")}
-                      className={`flex-1 py-1 px-2 rounded-lg transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                        todayTimeViewMode === "tasks"
-                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm"
-                          : "text-slate-400 hover:text-slate-200"
-                      }`}
-                    >
-                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                      <span>Tasks ({todayDay.completedTasksCount}/{todayDay.totalTasksCount})</span>
-                    </button>
+                {(todayDay.sessions || []).length === 0 ? (
+                  <div className="p-5 rounded-2xl bg-slate-950/60 border border-dashed border-slate-800 text-center space-y-1">
+                    <Clock className="w-5 h-5 text-slate-500 mx-auto" />
+                    <p className="text-xs text-slate-300 font-medium">No study sessions recorded yet today (0 min spent)</p>
+                    <p className="text-[11px] text-slate-500">
+                      When study time is logged, each start time and end time will be audited here (e.g. Started at 9:00 AM and stopped at 9:15 AM).
+                    </p>
                   </div>
-
-                  {/* Mode 1: Start Time & End Time Breakdown */}
-                  {todayTimeViewMode === "sessions" && (
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                      {(todayDay.sessions || []).length === 0 ? (
-                        <div className="p-4 rounded-xl bg-slate-900/60 border border-dashed border-slate-800 text-center space-y-1">
-                          <Clock className="w-5 h-5 text-slate-500 mx-auto" />
-                          <p className="text-xs text-slate-300 font-medium">No study sessions recorded yet today</p>
-                          <p className="text-[11px] text-slate-500">
-                            Every minute spent running the timer or checking off tasks is audited here with start & end timestamps.
-                          </p>
-                        </div>
-                      ) : (
-                        (todayDay.sessions || []).map((session, sIdx) => (
-                          <div
-                            key={session.id || sIdx}
-                            className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition text-xs space-y-1"
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="font-bold text-white flex items-center gap-1.5 font-mono text-[11px]">
-                                <Clock className="w-3 h-3 text-indigo-400" />
-                                {session.displayTimeRange}
-                              </span>
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-                                {session.durationMinutes}m ({session.durationHours}h)
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-slate-300 font-medium truncate">
-                              {session.taskTitle}
-                            </p>
-                            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
-                              <span className="text-indigo-300">{session.category}</span>
-                              <span className="text-slate-400">{session.status}</span>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-
-                  {/* Mode 2: Tasks Breakdown */}
-                  {todayTimeViewMode === "tasks" && (
-                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                      {todayDay.tasks.map((t, i) => (
-                        <div key={i} className="flex items-center justify-between text-xs text-slate-300 p-2 rounded-lg bg-slate-900/60 border border-slate-800/80">
-                          <span className="truncate pr-2">{t.title}</span>
-                          <span className="font-mono text-slate-400 shrink-0">
-                            {t.actualMinutes}m / {t.plannedMinutes}m
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {(todayDay.sessions || []).map((sess, sIdx) => (
+                      <div
+                        key={sess.id || sIdx}
+                        className="p-3.5 rounded-2xl bg-slate-950/90 border border-slate-800 hover:border-slate-700 transition space-y-1.5"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-bold text-white text-xs font-mono flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                            Started at {sess.startTimeFormatted} and stopped at {sess.endTimeFormatted}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 shrink-0">
+                            {sess.durationMinutes} min spent
                           </span>
                         </div>
-                      ))}
-                    </div>
+                        {sess.notes && (
+                          <p className="text-[11px] text-slate-400 truncate">
+                            {sess.notes}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* SECTION 2: BELOW THIS TIME LOG WHICH PROBLEM WAS PART OF THIS TIME LOG */}
+            <div className="pt-6 border-t border-slate-800/80 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    Problem Part of This Time Log
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className={`px-2.5 py-0.5 rounded-lg text-xs font-bold border ${
+                      todayDay.anchorDifficulty === "Easy"
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                        : todayDay.anchorDifficulty === "Hard"
+                        ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                        : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                    }`}
+                  >
+                    {todayDay.anchorDifficulty || "Medium"}
+                  </span>
+                  {todayDay.anchorPattern && (
+                    <span className="px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                      Pattern: {todayDay.anchorPattern}
+                    </span>
                   )}
                 </div>
               </div>
+
+              <div>
+                <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+                  {todayDay.anchorProblem || todayDay.topic}
+                </h3>
+                <p className="text-xs text-slate-300 font-medium mt-1">
+                  <strong className="text-emerald-400">{todayDay.phase}:</strong> {todayDay.topic}
+                </p>
+                <p className="text-xs text-slate-400 leading-relaxed pt-1">
+                  {todayDay.learningObjective}
+                </p>
+              </div>
+
+              {todayDay.anchorInstructions && (
+                <div className="p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 text-xs space-y-1">
+                  <span className="font-bold text-indigo-300 uppercase tracking-wider text-[10px]">
+                    Algorithmic Approach & Key Decision Rule
+                  </span>
+                  <p className="text-slate-300 leading-relaxed">
+                    {todayDay.anchorInstructions}
+                  </p>
+                </div>
+              )}
+
+              {todayDay.deliverable && (
+                <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800 text-xs flex flex-wrap items-baseline gap-2">
+                  <strong className="text-emerald-400 font-bold shrink-0">Exit Deliverable:</strong>
+                  <span className="text-slate-300">{todayDay.deliverable}</span>
+                </div>
+              )}
             </div>
           </section>
         )}
@@ -952,34 +920,15 @@ export function PublicProgressView() {
                       </div>
                     </div>
 
-                    {/* Expandable Task & Session Breakdown */}
+                    {/* Expandable Time Log & Problem Part Breakdown */}
                     {isExpanded && (
                       <div className="p-4 sm:p-5 pt-0 border-t border-slate-800/80 bg-slate-950/40 rounded-b-2xl space-y-4">
-                        {/* Anchor Instructions & Deliverables */}
-                        {day.anchorInstructions && (
-                          <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs space-y-1">
-                            <span className="font-bold text-indigo-300 uppercase tracking-wider text-[10px]">
-                              Problem Details & Instructions
-                            </span>
-                            <p className="text-slate-300 leading-relaxed">
-                              {day.anchorInstructions}
-                            </p>
-                          </div>
-                        )}
-
-                        {day.deliverable && (
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300 bg-slate-900/50 p-3 rounded-xl border border-slate-800/80">
-                            <strong className="text-emerald-400">Deliverable:</strong>
-                            <span>{day.deliverable}</span>
-                          </div>
-                        )}
-
-                        {/* Start & End Time Sessions List */}
-                        <div className="space-y-2 pt-1 border-t border-slate-800/80">
+                        {/* 1. Time Log For The Day (Start & End Times) */}
+                        <div className="space-y-2.5 pt-2">
                           <div className="flex items-center justify-between">
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                               <Clock className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>Session Time Log (Start & End Times)</span>
+                              <span>Time Log (Total Spent: {day.actualMinutes} min)</span>
                             </span>
                             <button
                               onClick={() => setSessionModalDay(day)}
@@ -993,7 +942,7 @@ export function PublicProgressView() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                             {(day.sessions || []).length === 0 ? (
                               <div className="col-span-full p-3 rounded-xl bg-slate-900/40 border border-dashed border-slate-800 text-center">
-                                <span className="text-xs text-slate-500">No study sessions recorded for this day (0m logged).</span>
+                                <span className="text-xs text-slate-500">No study sessions recorded for this day (0 min spent).</span>
                               </div>
                             ) : (
                               (day.sessions || []).map((sess, sIdx) => (
@@ -1002,20 +951,17 @@ export function PublicProgressView() {
                                   className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs"
                                 >
                                   <div className="space-y-0.5 min-w-0 pr-2">
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="font-mono font-bold text-white text-[11px]">
-                                        {sess.displayTimeRange}
-                                      </span>
-                                      <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/15 text-emerald-400">
-                                        {sess.durationMinutes}m
-                                      </span>
-                                    </div>
-                                    <p className="text-[11px] text-slate-300 truncate">
-                                      {sess.taskTitle}
-                                    </p>
+                                    <span className="font-mono font-bold text-white text-[11px] block">
+                                      Started at {sess.startTimeFormatted} and stopped at {sess.endTimeFormatted}
+                                    </span>
+                                    {sess.notes && (
+                                      <p className="text-[10px] text-slate-400 truncate">
+                                        {sess.notes}
+                                      </p>
+                                    )}
                                   </div>
-                                  <span className="text-[10px] text-slate-400 shrink-0">
-                                    {sess.status}
+                                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 shrink-0">
+                                    {sess.durationMinutes} min spent
                                   </span>
                                 </div>
                               ))
@@ -1023,53 +969,48 @@ export function PublicProgressView() {
                           </div>
                         </div>
 
-                        {/* Sub-Tasks Time Allocation List */}
-                        <div className="space-y-2 pt-1 border-t border-slate-800/80">
-                          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                            Daily Task Breakdown ({day.completedTasksCount} / {day.totalTasksCount} Completed)
-                          </span>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {day.tasks.map((task, tIdx) => (
-                              <div
-                                key={tIdx}
-                                className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs"
+                        {/* 2. Below this time log: Which problem was part of this time log */}
+                        <div className="space-y-3 pt-3 border-t border-slate-800/80">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Problem Part of This Time Log</span>
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                  day.anchorDifficulty === "Easy"
+                                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                                    : day.anchorDifficulty === "Hard"
+                                    ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
+                                    : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                                }`}
                               >
-                                <div className="flex items-center gap-2 min-w-0 pr-2">
-                                  <div
-                                    className={`w-2 h-2 rounded-full shrink-0 ${
-                                      task.status === "Completed"
-                                        ? "bg-emerald-400"
-                                        : task.actualMinutes > 0
-                                        ? "bg-indigo-400"
-                                        : "bg-slate-600"
-                                    }`}
-                                  />
-                                  <span className="font-medium text-slate-200 truncate">
-                                    {task.title}
-                                  </span>
-                                  {task.isAnchor && (
-                                    <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
-                                      Anchor
-                                    </span>
-                                  )}
-                                </div>
-
-                                <div className="flex items-center gap-2 shrink-0 text-slate-400 font-mono">
-                                  <span>{task.actualMinutes}m / {task.plannedMinutes}m</span>
-                                  <span
-                                    className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                                      task.status === "Completed"
-                                        ? "bg-emerald-500/10 text-emerald-400"
-                                        : "bg-slate-800 text-slate-400"
-                                    }`}
-                                  >
-                                    {task.status}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
+                                {day.anchorDifficulty || "Medium"}
+                              </span>
+                              {day.anchorPattern && (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                                  {day.anchorPattern}
+                                </span>
+                              )}
+                            </div>
                           </div>
+
+                          <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs space-y-1.5">
+                            <h4 className="font-extrabold text-sm text-white">
+                              {day.anchorProblem || day.topic}
+                            </h4>
+                            <p className="text-slate-300 leading-relaxed text-xs">
+                              {day.anchorInstructions || day.learningObjective}
+                            </p>
+                          </div>
+
+                          {day.deliverable && (
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300 bg-slate-900/50 p-2.5 rounded-xl border border-slate-800/80">
+                              <strong className="text-emerald-400">Exit Deliverable:</strong>
+                              <span>{day.deliverable}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1166,29 +1107,33 @@ export function PublicProgressView() {
                               {sIdx + 1}
                             </span>
                             <span className="font-extrabold text-sm font-mono text-white">
-                              {session.displayTimeRange}
+                              Started at {session.startTimeFormatted} and stopped at {session.endTimeFormatted}
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                              {session.durationMinutes} min ({session.durationHours} hrs)
-                            </span>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 text-slate-300">
-                              {session.status}
-                            </span>
-                          </div>
+                          <span className="px-2.5 py-1 rounded-xl text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            {session.durationMinutes} min spent
+                          </span>
                         </div>
 
-                        <div className="pt-1">
-                          <div className="text-xs font-bold text-slate-200">
-                            {session.taskTitle}
-                          </div>
-                          <div className="text-[11px] text-indigo-300/80 mt-0.5">
-                            Category: {session.category}
+                        {/* Below this time log: Which problem was part of this time log */}
+                        <div className="pt-2 border-t border-slate-800/60 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                              <Sparkles className="w-3 h-3" />
+                              <span>Problem Part of This Time Log:</span>
+                            </span>
+                            <span className="text-xs font-bold text-white">
+                              {session.problemPart || sessionModalDay.anchorProblem || sessionModalDay.topic}
+                            </span>
+                            {(session.problemPattern || sessionModalDay.anchorPattern) && (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-indigo-500/15 text-indigo-300">
+                                {session.problemPattern || sessionModalDay.anchorPattern}
+                              </span>
+                            )}
                           </div>
                           {session.notes && (
-                            <p className="text-xs text-slate-400 mt-1.5 p-2 rounded-lg bg-slate-900 border border-slate-800/80">
+                            <p className="text-xs text-slate-400 pt-0.5">
                               {session.notes}
                             </p>
                           )}

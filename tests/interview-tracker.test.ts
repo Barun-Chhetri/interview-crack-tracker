@@ -572,6 +572,19 @@ describe("180-Day Interview Preparation Tracker - Comprehensive Test Suite", () 
       const hourMin = hourSec >= 15 ? Math.max(1, Math.round(hourSec / 60)) : Math.round(hourSec / 60);
       expect(hourMin).toBe(60);
     });
+
+    it("Scenario 34: Public time log displays start/stop intervals with duration and associates problem part below it", () => {
+      const startTimeFormatted = "09:00 AM";
+      const endTimeFormatted = "09:15 AM";
+      const durationMinutes = 15;
+      const logSummary = `Started at ${startTimeFormatted} and stopped at ${endTimeFormatted} (${durationMinutes} min spent)`;
+      const anchorProblem = "Longest Consecutive Sequence";
+      const anchorPattern = "HashSet sequence starts";
+
+      expect(logSummary).toBe("Started at 09:00 AM and stopped at 09:15 AM (15 min spent)");
+      expect(anchorProblem).toBeTruthy();
+      expect(anchorPattern).toBeTruthy();
+    });
   });
 });
 

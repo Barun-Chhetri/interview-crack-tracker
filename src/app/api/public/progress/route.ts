@@ -20,7 +20,9 @@ function buildDaySessions(
   actualMinutes: number = 0,
   dayNumber: number = 1,
   anchorProblem: string | null = null,
-  dayStatus: string = "Not Started"
+  dayStatus: string = "Not Started",
+  anchorPattern: string | null = null,
+  anchorDifficulty: string | null = null
 ) {
   // 1. If real study sessions exist in database, return them formatted
   if (rawSessions && rawSessions.length > 0) {
@@ -46,11 +48,15 @@ function buildDaySessions(
         endTimeFormatted: endFmt,
         durationMinutes: durationMin,
         durationHours: Number((durationMin / 60).toFixed(1)),
+        logSummary: `Started at ${startFmt} and stopped at ${endFmt} (${durationMin} min spent)`,
         taskTitle,
         category: matchedTask?.category || (s.isManual ? "Study Checklist" : "Focus Timer"),
         status: s.status || "Completed",
         notes: s.notes || (s.isManual ? "Manual checklist log" : "Audited focus session"),
         isManual: !!s.isManual,
+        problemPart: anchorProblem || taskTitle,
+        problemPattern: anchorPattern || null,
+        problemDifficulty: anchorDifficulty || "Medium",
       };
     });
   }
@@ -90,11 +96,15 @@ function buildDaySessions(
       endTimeFormatted: endFmt,
       durationMinutes: durationMin,
       durationHours: Number((durationMin / 60).toFixed(1)),
+      logSummary: `Started at ${startFmt} and stopped at ${endFmt} (${durationMin} min spent)`,
       taskTitle: t.title,
       category: t.category || "Study Task",
       status: t.status === "Completed" ? "Completed" : "Logged",
       notes: `Recorded study time: ${durationMin}m on ${t.title}`,
       isManual: true,
+      problemPart: anchorProblem || t.title,
+      problemPattern: anchorPattern || null,
+      problemDifficulty: anchorDifficulty || "Medium",
     };
   });
 }
@@ -394,7 +404,9 @@ export async function GET(request: NextRequest) {
           d.actualMinutes,
           d.dayNumber,
           d.anchorProblem,
-          d.status
+          d.status,
+          d.anchorPattern,
+          d.anchorDifficulty
         ),
       };
     });

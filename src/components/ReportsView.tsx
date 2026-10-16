@@ -12,13 +12,18 @@ import {
   Copy,
   Clock,
   Sparkles,
+  ExternalLink,
+  Settings,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 interface ReportsViewProps {
   currentDayNumber: number;
+  onNavigateTab?: (tab: string) => void;
 }
 
-export function ReportsView({ currentDayNumber }: ReportsViewProps) {
+export function ReportsView({ currentDayNumber, onNavigateTab }: ReportsViewProps) {
   const [reportType, setReportType] = useState<"daily" | "weekly" | "monthly">("daily");
 
   // Selection states
@@ -30,12 +35,46 @@ export function ReportsView({ currentDayNumber }: ReportsViewProps) {
   const [reportData, setReportData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Email modal states
+  // Email delivery & modal states
   const [showEmailModal, setShowEmailModal] = useState(false);
+  const [isEmailConfigured, setIsEmailConfigured] = useState<boolean | null>(null);
+  const [configuredProvider, setConfiguredProvider] = useState<string | null>(null);
   const [recipientEmail, setRecipientEmail] = useState("");
   const [customNote, setCustomNote] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [sendStatus, setSendStatus] = useState<{ status: string; message: string } | null>(null);
+  const [sendStatus, setSendStatus] = useState<{
+    status: string;
+    message: string;
+    previewUrl?: string;
+  } | null>(null);
+
+  // Inline Quick Config state
+  const [showQuickConfig, setShowQuickConfig] = useState(false);
+  const [quickProvider, setQuickProvider] = useState<"resend" | "gmail">("resend");
+  const [quickResendKey, setQuickResendKey] = useState("");
+  const [quickSmtpUser, setQuickSmtpUser] = useState("");
+  const [quickSmtpPass, setQuickSmtpPass] = useState("");
+  const [copiedTextSuccess, setCopiedTextSuccess] = useState(false);
+
+  const fetchEmailConfig = async () => {
+    try {
+      const res = await fetch("/api/accountability");
+      if (res.ok) {
+        const data = await res.json();
+        setIsEmailConfigured(data.isEmailConfigured);
+        setConfiguredProvider(data.provider);
+        if (data.defaultRecipientEmail && !recipientEmail) {
+          setRecipientEmail(data.defaultRecipientEmail);
+        }
+      }
+    } catch {
+      // Non-blocking
+    }
+  };
+
+  useEffect(() => {
+    fetchEmailConfig();
+  }, []);
 
   const fetchReport = async () => {
     setIsLoading(true);
@@ -88,7 +127,15 @@ export function ReportsView({ currentDayNumber }: ReportsViewProps) {
       setSendStatus({
         status: resData.status,
         message: resData.message || (resData.success ? "Report sent successfully!" : "Failed to deliver report"),
+        previewUrl: resData.previewUrl,
       });
+
+      if (resData.status === "Not Configured") {
+        setIsEmailConfigured(false);
+        setShowQuickConfig(true);
+      } else if (resData.success) {
+        setIsEmailConfigured(true);
+      }
     } catch (err: unknown) {
       setSendStatus({
         status: "Failed",
@@ -99,11 +146,102 @@ export function ReportsView({ currentDayNumber }: ReportsViewProps) {
     }
   };
 
+  const handleQuickSaveAndSend = async () => {
+    setIsSending(true);
+    setSendStatus(null);
+    try {
+      const saveRes = await fetch("/api/accountability", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "updateSettings",
+          resendApiKey: quickProvider === "resend" ? quickResendKey : undefined,
+          smtpHost: quickProvider === "gmail" ? "smtp.gmail.com" : undefined,
+          smtpPort: quickProvider === "gmail" ? 587 : undefined,
+          smtpUser: quickProvider === "gmail" ? quickSmtpUser : undefined,
+          smtpPass: quickProvider === "gmail" ? quickSmtpPass : undefined,
+          defaultRecipientEmail: recipientEmail || undefined,
+        }),
+      });
+
+      if (!saveRes.ok) {
+        const saveErr = await saveRes.json();
+        throw new Error(saveErr.error || "Failed to save email settings");
+      }
+
+      setIsEmailConfigured(true);
+      setShowQuickConfig(false);
+      await fetchEmailConfig();
+
+      // Immediately send report
+      await handleSendEmail();
+    } catch (err: unknown) {
+      setSendStatus({
+        status: "Failed",
+        message: err instanceof Error ? err.message : "Failed to configure and send report",
+      });
+      setIsSending(false);
+    }
+  };
+
+  const handleSendTestPreview = async () => {
+    setIsSending(true);
+    setSendStatus(null);
+    try {
+      const res = await fetch("/api/reports/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipientEmail: recipientEmail || "preview@example.com",
+          reportType: reportType.charAt(0).toUpperCase() + reportType.slice(1),
+          dayNumber: selectedDay,
+          weekNumber: selectedWeek,
+          monthNumber: selectedMonth,
+          customNote,
+          testMode: true,
+        }),
+      });
+
+      const resData = await res.json();
+      setSendStatus({
+        status: resData.status,
+        message: resData.message || "Test preview report generated!",
+        previewUrl: resData.previewUrl,
+      });
+    } catch (err: unknown) {
+      setSendStatus({
+        status: "Failed",
+        message: err instanceof Error ? err.message : "Preview generation failed",
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const handleCopyMarkdown = () => {
     if (!reportData) return;
-    const text = JSON.stringify(reportData, null, 2);
-    navigator.clipboard.writeText(text);
-    alert("Report data copied to clipboard!");
+    const typeLabel = reportType.charAt(0).toUpperCase() + reportType.slice(1);
+    let summaryText = `[180-Day Tracker] ${typeLabel} Study Report\n`;
+    if (reportType === "daily") {
+      summaryText += `Date: ${reportData.displayDate} (Day ${reportData.dayNumber}/180)\n`;
+      summaryText += `Topic: ${reportData.topic || ""}\n`;
+      summaryText += `Actual Time: ${reportData.actualMinutes}m (${(reportData.actualMinutes / 60).toFixed(1)}h)\n`;
+      summaryText += `Target Met: ${reportData.actualMinutes >= 180 ? "Yes" : "No"}\n`;
+    } else if (reportType === "weekly") {
+      summaryText += `Week ${reportData.weekNumber || selectedWeek} Summary\n`;
+      summaryText += `Actual Hours: ${reportData.actualHours}h\n`;
+      summaryText += `Adherence: ${reportData.adherencePercent}%\n`;
+    } else {
+      summaryText += `Month ${reportData.monthNumber || selectedMonth} Milestone\n`;
+      summaryText += `Progress: ${reportData.curriculumProgress}%\n`;
+      summaryText += `Consistency: ${reportData.consistencyRate}%\n`;
+    }
+    if (customNote) {
+      summaryText += `Note: ${customNote}\n`;
+    }
+    navigator.clipboard.writeText(summaryText);
+    setCopiedTextSuccess(true);
+    setTimeout(() => setCopiedTextSuccess(false), 3000);
   };
 
   return (
@@ -393,23 +531,57 @@ export function ReportsView({ currentDayNumber }: ReportsViewProps) {
 
       {/* Send Report Modal */}
       {showEmailModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg p-6 text-white shadow-2xl space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                <Mail className="w-5 h-5" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-xl p-6 text-white shadow-2xl space-y-4 my-8">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-2xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Send Study Analysis Report</h3>
+                  <p className="text-xs text-slate-400">
+                    Dispatch verified {reportType} study progress to mentor, partner, or yourself
+                  </p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">Send Accountability Report</h3>
-                <p className="text-xs text-slate-400">
-                  Delivers verified study activity to your accountability partner
-                </p>
+
+              <div
+                className={`px-3 py-1 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 shrink-0 ${
+                  isEmailConfigured
+                    ? "bg-emerald-500/20 border-emerald-500/30 text-emerald-300"
+                    : "bg-indigo-500/20 border-indigo-500/30 text-indigo-300"
+                }`}
+              >
+                {isEmailConfigured ? (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {isEmailConfigured
+                    ? `Live Delivery (${configuredProvider || "Configured"})`
+                    : "Ready (Test Preview Mode)"}
+                </span>
               </div>
             </div>
 
+            {/* Report Context Badge */}
+            <div className="flex items-center justify-between bg-slate-950/60 px-4 py-2.5 rounded-xl border border-slate-800 text-xs">
+              <span className="text-slate-400">Attached Report:</span>
+              <span className="font-bold text-indigo-300 font-mono">
+                {reportType === "daily"
+                  ? `Day ${selectedDay} Daily Report (${reportData?.displayDate || "Selected Day"})`
+                  : reportType === "weekly"
+                  ? `Week ${selectedWeek} Weekly Summary`
+                  : `Month ${selectedMonth} Executive Report`}
+              </span>
+            </div>
+
+            {/* Status Message Banner */}
             {sendStatus && (
               <div
-                className={`p-3.5 rounded-xl text-xs flex items-center gap-2 ${
+                className={`p-3.5 rounded-xl text-xs space-y-2 ${
                   sendStatus.status === "Sent"
                     ? "bg-emerald-500/20 border border-emerald-500/30 text-emerald-300"
                     : sendStatus.status === "Not Configured"
@@ -417,60 +589,217 @@ export function ReportsView({ currentDayNumber }: ReportsViewProps) {
                     : "bg-rose-500/20 border border-rose-500/30 text-rose-300"
                 }`}
               >
-                {sendStatus.status === "Sent" ? (
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                ) : (
-                  <AlertTriangle className="w-4 h-4 shrink-0" />
-                )}
-                <span>{sendStatus.message}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    {sendStatus.status === "Sent" ? (
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                    )}
+                    <span className="leading-relaxed">{sendStatus.message}</span>
+                  </div>
+                  {sendStatus.previewUrl && (
+                    <a
+                      href={sendStatus.previewUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs inline-flex items-center gap-1 shrink-0"
+                    >
+                      <span>Preview Email</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
               </div>
             )}
 
+            {/* When Not Configured with Live Credentials: Offer Fast Setup and Explanation */}
+            {!isEmailConfigured && (
+              <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-4 space-y-3 text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="text-indigo-200 leading-relaxed">
+                    <strong>Test Delivery Mode Active.</strong> Reports will be dispatched and viewable via an instant web preview link. To send directly into external recipient inboxes (Gmail/Outlook), configure your Resend or SMTP credentials below or in Settings.
+                  </div>
+                  {onNavigateTab && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowEmailModal(false);
+                        onNavigateTab("settings");
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 font-semibold text-[11px] inline-flex items-center gap-1 shrink-0 border border-slate-700 cursor-pointer"
+                    >
+                      <Settings className="w-3 h-3" />
+                      <span>Settings</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Quick Setup Collapsible Drawer */}
+                <div className="pt-2 border-t border-amber-500/20">
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickConfig(!showQuickConfig)}
+                    className="flex items-center justify-between w-full text-indigo-300 hover:text-indigo-200 font-bold text-xs cursor-pointer"
+                  >
+                    <span>⚡ Quick Setup Credentials in 30 Seconds</span>
+                    {showQuickConfig ? (
+                      <ChevronUp className="w-4 h-4" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4" />
+                    )}
+                  </button>
+
+                  {showQuickConfig && (
+                    <div className="mt-3 bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setQuickProvider("resend")}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                            quickProvider === "resend"
+                              ? "bg-indigo-600 text-white"
+                              : "bg-slate-900 text-slate-400"
+                          }`}
+                        >
+                          Resend API Key
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setQuickProvider("gmail")}
+                          className={`px-3 py-1 rounded-lg text-xs font-bold ${
+                            quickProvider === "gmail"
+                              ? "bg-indigo-600 text-white"
+                              : "bg-slate-900 text-slate-400"
+                          }`}
+                        >
+                          Gmail App Password
+                        </button>
+                      </div>
+
+                      {quickProvider === "resend" ? (
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                            Resend API Key (re_...)
+                          </label>
+                          <input
+                            type="password"
+                            placeholder="re_xxxxxxxxxxxxxx"
+                            value={quickResendKey}
+                            onChange={(e) => setQuickResendKey(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono"
+                          />
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <input
+                            type="email"
+                            placeholder="your-name@gmail.com"
+                            value={quickSmtpUser}
+                            onChange={(e) => setQuickSmtpUser(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white"
+                          />
+                          <input
+                            type="password"
+                            placeholder="16-character Google App Password"
+                            value={quickSmtpPass}
+                            onChange={(e) => setQuickSmtpPass(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white font-mono"
+                          />
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={handleQuickSaveAndSend}
+                        disabled={isSending}
+                        className="w-full py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer disabled:opacity-50"
+                      >
+                        {isSending ? "Saving & Delivering..." : "Save Credentials & Send Report"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Recipient and Custom Notes Inputs */}
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Recipient Email
+                  Recipient Email(s) <span className="text-slate-500 font-normal">(comma-separated for multiple)</span>
                 </label>
                 <input
                   type="email"
                   value={recipientEmail}
                   onChange={(e) => setRecipientEmail(e.target.value)}
-                  placeholder="partner@example.com (or leaves blank to use default)"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white"
+                  placeholder="mentor@example.com, friend@example.com"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-white focus:border-indigo-500 outline-none"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Custom Student Note (Optional)
+                  Personal Note / Reflection <span className="text-slate-500 font-normal">(Optional)</span>
                 </label>
                 <textarea
                   value={customNote}
                   onChange={(e) => setCustomNote(e.target.value)}
                   placeholder="Hey, finished my 3-hour minimum today! Crushed the HashSet sequence pattern."
                   rows={2}
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white focus:border-indigo-500 outline-none"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={() => setShowEmailModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 cursor-pointer"
-              >
-                Close
-              </button>
-              <button
-                type="button"
-                onClick={handleSendEmail}
-                disabled={isSending}
-                className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md cursor-pointer disabled:opacity-50"
-              >
-                <Send className="w-3.5 h-3.5" />
-                {isSending ? "Delivering..." : "Send Verified Report"}
-              </button>
+            {/* Modal Bottom Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5 pt-3 border-t border-slate-800">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCopyMarkdown}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition cursor-pointer"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>{copiedTextSuccess ? "Copied!" : "Copy Report Text"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSendTestPreview}
+                  disabled={isSending}
+                  title="Generate a real HTML email delivered to an instant Ethereal web preview"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-indigo-300 transition cursor-pointer disabled:opacity-50"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Send Test Preview</span>
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEmailModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendEmail}
+                  disabled={isSending}
+                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 transition cursor-pointer disabled:opacity-50"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>
+                    {isSending
+                      ? "Delivering..."
+                      : isEmailConfigured
+                      ? "Send Live Report"
+                      : "Send Report"}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

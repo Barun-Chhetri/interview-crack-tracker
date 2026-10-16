@@ -135,7 +135,10 @@ function MainApp() {
         )}
 
         {activeTab === "reports" && (
-          <ReportsView currentDayNumber={selectedDayNumber} />
+          <ReportsView
+            currentDayNumber={selectedDayNumber}
+            onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
+          />
         )}
 
         {activeTab === "project-recruiting" && <ProjectRecruitingView />}

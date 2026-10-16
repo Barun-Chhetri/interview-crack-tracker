@@ -37,7 +37,11 @@ export function AccountabilitySettingsView() {
   const [autoDelivery, setAutoDelivery] = useState(false);
   const [autoFrequency, setAutoFrequency] = useState("daily");
 
-  const [testResult, setTestResult] = useState<{ status: string; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{
+    status: string;
+    message: string;
+    previewUrl?: string;
+  } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -312,11 +316,36 @@ export function AccountabilitySettingsView() {
             )}
           </div>
 
-          {/* Credentials Inputs (Resend or SMTP) */}
-          <div className="space-y-3">
+          {/* Credentials Inputs (Resend or SMTP with Presets) */}
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+              {[
+                { label: "Resend", host: "", port: 587 },
+                { label: "Gmail", host: "smtp.gmail.com", port: 587 },
+                { label: "Outlook", host: "smtp.office365.com", port: 587 },
+                { label: "Custom SMTP", host: smtpHost || "smtp.mailgun.org", port: 587 },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => {
+                    if (preset.label === "Resend") {
+                      // Switch to Resend focus
+                    } else {
+                      setSmtpHost(preset.host);
+                      setSmtpPort(preset.port);
+                    }
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-semibold text-slate-300 border border-slate-700 cursor-pointer"
+                >
+                  Preset: {preset.label}
+                </button>
+              ))}
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Resend API Key (Recommended for zero-setup delivery)
+                Resend API Key (Recommended &mdash; 100 free emails/day)
               </label>
               <input
                 type="password"
@@ -328,11 +357,13 @@ export function AccountabilitySettingsView() {
             </div>
 
             <div className="pt-2 border-t border-slate-800">
-              <span className="text-[11px] font-semibold text-slate-400 block mb-2">OR Use Standard SMTP:</span>
+              <span className="text-[11px] font-semibold text-slate-400 block mb-2">
+                OR Use Standard SMTP (Gmail App Password, Outlook, etc.):
+              </span>
               <div className="grid grid-cols-2 gap-2 mb-2">
                 <input
                   type="text"
-                  placeholder="SMTP Host (e.g. smtp.mailgun.org)"
+                  placeholder="SMTP Host (e.g. smtp.gmail.com)"
                   value={smtpHost}
                   onChange={(e) => setSmtpHost(e.target.value)}
                   className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
@@ -345,22 +376,29 @@ export function AccountabilitySettingsView() {
                   className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 mb-2">
                 <input
                   type="text"
-                  placeholder="SMTP Username"
+                  placeholder="SMTP Username (e.g. your-email@gmail.com)"
                   value={smtpUser}
                   onChange={(e) => setSmtpUser(e.target.value)}
                   className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
                 />
                 <input
                   type="password"
-                  placeholder="SMTP Password"
+                  placeholder="SMTP Password (or App Password)"
                   value={smtpPass}
                   onChange={(e) => setSmtpPass(e.target.value)}
                   className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
                 />
               </div>
+              <input
+                type="text"
+                placeholder='From Address (e.g. "Interview Tracker" <you@domain.com>)'
+                value={smtpFrom}
+                onChange={(e) => setSmtpFrom(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+              />
             </div>
           </div>
 
@@ -386,14 +424,26 @@ export function AccountabilitySettingsView() {
 
           {testResult && (
             <div
-              className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
+              className={`p-3 rounded-xl text-xs flex items-center justify-between gap-2 ${
                 testResult.status === "Sent"
                   ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
                   : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
               }`}
             >
-              {testResult.status === "Sent" ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
-              <span>{testResult.message}</span>
+              <div className="flex items-center gap-2">
+                {testResult.status === "Sent" ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
+                <span>{testResult.message}</span>
+              </div>
+              {testResult.previewUrl && (
+                <a
+                  href={testResult.previewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] shrink-0"
+                >
+                  View Email
+                </a>
+              )}
             </div>
           )}
         </div>

@@ -245,6 +245,20 @@ describe("180-Day Interview Preparation Tracker - Comprehensive Test Suite", () 
       const deliveryStatus = isConfigured ? "Sent" : "Failed";
       expect(deliveryStatus).toBe("Failed");
     });
+
+    it("Scenario 16b: Recipient list supports single or multiple comma-separated emails", () => {
+      const rawInput = "mentor@google.com, accountability@unt.edu ; friend@gmail.com";
+      const recipients = rawInput
+        .split(/[,;]/)
+        .map((e) => e.trim())
+        .filter((e) => e.length > 0);
+
+      expect(recipients).toEqual([
+        "mentor@google.com",
+        "accountability@unt.edu",
+        "friend@gmail.com",
+      ]);
+    });
   });
 
   // 17, 18, 19, 20: Authentication & Password Security

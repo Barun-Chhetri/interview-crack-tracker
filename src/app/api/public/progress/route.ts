@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import curriculumData from "@/data/curriculum_180_days.json";
-
-function formatTime12h(date: Date): string {
-  let h = date.getHours();
-  const m = date.getMinutes();
-  const ampm = h >= 12 ? "PM" : "AM";
-  h = h % 12;
-  h = h ? h : 12;
-  const mStr = m < 10 ? `0${m}` : `${m}`;
-  const hStr = h < 10 ? `0${h}` : `${h}`;
-  return `${hStr}:${mStr} ${ampm}`;
-}
+import {
+  TEXAS_TIMEZONE,
+  formatTexasTime12h,
+  formatTexasTimeWithZone,
+  getTexasIsoDate,
+  getTexasTzAbbreviation,
+  createTexasDate,
+  getCurriculumDayForTexasDate,
+} from "@/lib/texas-time";
 
 function buildDaySessions(
   rawSessions: any[] = [],
@@ -24,7 +22,7 @@ function buildDaySessions(
   anchorPattern: string | null = null,
   anchorDifficulty: string | null = null
 ) {
-  // 1. If real study sessions exist in database, return them formatted
+  // 1. If real study sessions exist in database, return them formatted in Texas Time (America/Chicago)
   if (rawSessions && rawSessions.length > 0) {
     return rawSessions.map((s: any, idx: number) => {
       const sStart = new Date(s.startTime);
@@ -35,8 +33,9 @@ function buildDaySessions(
       const durationMin = Math.max(1, Math.round(activeSec / 60));
       const matchedTask = tasks.find((t: any) => t.id === s.scheduledTaskId);
       const taskTitle = matchedTask ? matchedTask.title : (s.notes || `Study Session ${idx + 1}`);
-      const startFmt = formatTime12h(sStart);
-      const endFmt = formatTime12h(sEnd);
+      const startFmt = formatTexasTime12h(sStart);
+      const endFmt = formatTexasTime12h(sEnd);
+      const tzAbbr = getTexasTzAbbreviation(sStart);
 
       return {
         id: s.id,
@@ -49,6 +48,8 @@ function buildDaySessions(
         durationMinutes: durationMin,
         durationHours: Number((durationMin / 60).toFixed(1)),
         logSummary: `Started at ${startFmt} and stopped at ${endFmt} (${durationMin} min spent)`,
+        timezone: TEXAS_TIMEZONE,
+        timezoneAbbr: tzAbbr,
         taskTitle,
         category: matchedTask?.category || (s.isManual ? "Study Checklist" : "Focus Timer"),
         status: s.status || "Completed",
@@ -75,7 +76,7 @@ function buildDaySessions(
   }
 
   const baseDate = dayDateStr || "2026-10-14";
-  let runningTime = new Date(`${baseDate}T09:00:00`);
+  let runningTime = createTexasDate(baseDate, "09:00:00");
 
   return activeTasks.map((t: any, idx: number) => {
     const durationMin = Number(t.actualMinutes);
@@ -83,8 +84,9 @@ function buildDaySessions(
     const sEnd = new Date(sStart.getTime() + durationMin * 60 * 1000);
     runningTime = new Date(sEnd.getTime() + 15 * 60 * 1000); // 15m gap
 
-    const startFmt = formatTime12h(sStart);
-    const endFmt = formatTime12h(sEnd);
+    const startFmt = formatTexasTime12h(sStart);
+    const endFmt = formatTexasTime12h(sEnd);
+    const tzAbbr = getTexasTzAbbreviation(sStart);
 
     return {
       id: `task-session-${dayNumber}-${t.id || idx}`,
@@ -97,6 +99,8 @@ function buildDaySessions(
       durationMinutes: durationMin,
       durationHours: Number((durationMin / 60).toFixed(1)),
       logSummary: `Started at ${startFmt} and stopped at ${endFmt} (${durationMin} min spent)`,
+      timezone: TEXAS_TIMEZONE,
+      timezoneAbbr: tzAbbr,
       taskTitle: t.title,
       category: t.category || "Study Task",
       status: t.status === "Completed" ? "Completed" : "Logged",
@@ -353,6 +357,10 @@ export async function GET(request: NextRequest) {
     });
 
     // 5. Build sanitized daily log records for public display
+    const currentTexasDate = getTexasIsoDate();
+    const currentTexasDayNumber = getCurriculumDayForTexasDate(currentTexasDate);
+    const now = new Date();
+
     const dailyLogs = mergedDays.map((d) => {
       const completedTaskCount = d.tasks.filter((t: any) => t.status === "Completed").length;
       const isTargetMet = d.actualMinutes >= 180;
@@ -369,6 +377,7 @@ export async function GET(request: NextRequest) {
         date: d.date,
         dayOfWeek: d.dayOfWeek,
         displayDate: d.displayDate,
+        isCurrentTexasToday: d.date === currentTexasDate,
         phase: d.phase,
         topic: d.topic,
         learningObjective: d.learningObjective,
@@ -430,6 +439,15 @@ export async function GET(request: NextRequest) {
         mediumProblemsCount: mediumCount,
         hardProblemsCount: hardCount,
         totalAnchorProblems: 180,
+        texasTime: {
+          timezone: TEXAS_TIMEZONE,
+          timezoneAbbr: getTexasTzAbbreviation(now),
+          date: currentTexasDate,
+          currentDayNumber: currentTexasDayNumber,
+          time12h: formatTexasTime12h(now),
+          timeWithZone: formatTexasTimeWithZone(now),
+          label: "Texas Time (Central Time • America/Chicago)",
+        },
       },
       phases,
       days: dailyLogs,

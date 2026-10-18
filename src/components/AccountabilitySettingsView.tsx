@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { formatTexasDateTime } from "@/lib/texas-time";
 import {
   Mail,
   Users,
@@ -464,7 +465,7 @@ export function AccountabilitySettingsView() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-950/60 text-slate-400 uppercase font-semibold">
                 <tr>
-                  <th className="py-2.5 px-3">Date</th>
+                  <th className="py-2.5 px-3">Date (Texas Time / CT)</th>
                   <th className="py-2.5 px-3">Recipient</th>
                   <th className="py-2.5 px-3">Report Type</th>
                   <th className="py-2.5 px-3">Status</th>
@@ -475,7 +476,7 @@ export function AccountabilitySettingsView() {
                 {deliveries.map((del) => (
                   <tr key={del.id} className="hover:bg-slate-800/30">
                     <td className="py-3 px-3 text-slate-300 font-mono">
-                      {new Date(del.createdAt).toLocaleDateString()} {new Date(del.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {formatTexasDateTime(del.createdAt)}
                     </td>
                     <td className="py-3 px-3 font-semibold text-white font-mono">{del.recipientEmail}</td>
                     <td className="py-3 px-3">{del.reportType} Report</td>

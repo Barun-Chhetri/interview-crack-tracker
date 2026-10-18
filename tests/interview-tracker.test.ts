@@ -18,6 +18,18 @@ import {
   validatePasswordStrength,
   AUTH_COOKIE_NAME,
 } from "../src/lib/auth";
+import {
+  TEXAS_TIMEZONE,
+  getTexasIsoDate,
+  formatTexasTime12h,
+  formatTexasTimeWithZone,
+  formatTexasLiveClock,
+  formatTexasDateTime,
+  getTexasTzAbbreviation,
+  createTexasDate,
+  getCurriculumDayForTexasDate,
+  formatTexasSessionInterval,
+} from "../src/lib/texas-time";
 
 describe("180-Day Interview Preparation Tracker - Comprehensive Test Suite", () => {
   // 1, 2, 3: Program days and date range verification
@@ -584,6 +596,92 @@ describe("180-Day Interview Preparation Tracker - Comprehensive Test Suite", () 
       expect(logSummary).toBe("Started at 09:00 AM and stopped at 09:15 AM (15 min spent)");
       expect(anchorProblem).toBeTruthy();
       expect(anchorPattern).toBeTruthy();
+    });
+
+    it("Scenario 35: getTexasIsoDate preserves Texas calendar date and prevents premature UTC midnight rollover", () => {
+      // 9:30 PM in Texas (CDT is UTC-5) is 02:30 AM UTC on the following day
+      const texasEveningUtc = "2026-10-19T02:30:00.000Z";
+      const standardUtcIso = new Date(texasEveningUtc).toISOString().split("T")[0];
+      expect(standardUtcIso).toBe("2026-10-19"); // naive UTC rolls over early
+
+      const texasDate = getTexasIsoDate(texasEveningUtc);
+      expect(texasDate).toBe("2026-10-18"); // Correct Texas date!
+
+      // Morning in Texas
+      const texasMorningUtc = "2026-10-18T14:00:00.000Z";
+      expect(getTexasIsoDate(texasMorningUtc)).toBe("2026-10-18");
+    });
+
+    it("Scenario 36: getCurriculumDayForTexasDate accurately resolves curriculum days for Texas dates", () => {
+      // Day 1: October 14, 2026
+      expect(getCurriculumDayForTexasDate("2026-10-14")).toBe(1);
+
+      // Day 5: October 18, 2026 (current real day)
+      expect(getCurriculumDayForTexasDate("2026-10-18")).toBe(5);
+
+      // Day 30: November 12, 2026 (Phase 1 end)
+      expect(getCurriculumDayForTexasDate("2026-11-12")).toBe(30);
+
+      // Day 180: April 11, 2027 (Program finish)
+      expect(getCurriculumDayForTexasDate("2027-04-11")).toBe(180);
+
+      // Boundary clamping
+      expect(getCurriculumDayForTexasDate("2026-10-01")).toBe(1);
+      expect(getCurriculumDayForTexasDate("2027-05-01")).toBe(180);
+    });
+
+    it("Scenario 37: formatTexasTime12h and formatTexasTimeWithZone convert UTC timestamps to Texas 12-hour wall time", () => {
+      // 14:00:00 UTC = 09:00 AM CDT (UTC-5)
+      const morningUtc = "2026-10-18T14:00:00.000Z";
+      expect(formatTexasTime12h(morningUtc)).toBe("09:00 AM");
+
+      const afternoonUtc = "2026-10-18T18:30:00.000Z";
+      expect(formatTexasTime12h(afternoonUtc)).toBe("01:30 PM");
+
+      const withZone = formatTexasTimeWithZone(morningUtc);
+      expect(withZone).toContain("09:00 AM");
+      expect(withZone).toContain("CDT");
+
+      // Winter date under CST (UTC-6)
+      const winterUtc = "2027-01-15T15:00:00.000Z";
+      expect(formatTexasTime12h(winterUtc)).toBe("09:00 AM");
+      expect(getTexasTzAbbreviation(winterUtc)).toBe("CST");
+    });
+
+    it("Scenario 38: createTexasDate correctly builds Date instances for both CDT and CST wall clock times", () => {
+      // In October (Daylight Saving Time: CDT / UTC-5)
+      const cdtDate = createTexasDate("2026-10-18", "09:00:00");
+      expect(formatTexasTime12h(cdtDate)).toBe("09:00 AM");
+      expect(cdtDate.toISOString()).toBe("2026-10-18T14:00:00.000Z");
+
+      // In January (Standard Time: CST / UTC-6)
+      const cstDate = createTexasDate("2027-01-15", "09:00:00");
+      expect(formatTexasTime12h(cstDate)).toBe("09:00 AM");
+      expect(cstDate.toISOString()).toBe("2027-01-15T15:00:00.000Z");
+    });
+
+    it("Scenario 39: formatTexasSessionInterval returns formatted interval, summary, and America/Chicago timezone", () => {
+      const start = "2026-10-18T14:00:00.000Z";
+      const end = "2026-10-18T14:45:00.000Z";
+      const interval = formatTexasSessionInterval(start, end, 45);
+
+      expect(interval.startTimeFormatted).toBe("09:00 AM");
+      expect(interval.endTimeFormatted).toBe("09:45 AM");
+      expect(interval.displayTimeRange).toBe("09:00 AM – 09:45 AM");
+      expect(interval.logSummary).toBe("Started at 09:00 AM and stopped at 09:45 AM (45 min spent)");
+      expect(interval.timezone).toBe("America/Chicago");
+      expect(interval.timezoneAbbr).toBe("CDT");
+    });
+
+    it("Scenario 40: Texas Live Clock and Date formatting functions output valid human-readable representations", () => {
+      const testDate = new Date("2026-10-18T18:45:30.000Z");
+      const liveClock = formatTexasLiveClock(testDate);
+      expect(liveClock).toBe("01:45:30 PM");
+
+      const formattedDateTime = formatTexasDateTime(testDate);
+      expect(formattedDateTime).toContain("Oct 18, 2026");
+      expect(formattedDateTime).toContain("01:45 PM");
+      expect(formattedDateTime).toContain("CDT");
     });
   });
 });

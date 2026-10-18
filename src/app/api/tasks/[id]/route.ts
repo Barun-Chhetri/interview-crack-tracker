@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { formatTexasDateTime } from "@/lib/texas-time";
 
 export async function PATCH(
   request: NextRequest,
@@ -52,7 +53,7 @@ export async function PATCH(
           status: "completed",
           notes: notes || (newStatus === "Completed" ? `Completed task: ${task.title}` : `Logged ${diffMinutes}m on task: ${task.title}`),
           isManual: true,
-          auditLog: `Task checklist progress update (+${diffMinutes}m)`,
+          auditLog: `Task checklist progress update (+${diffMinutes}m) [Texas Time: ${formatTexasDateTime(now)}]`,
         },
       });
     } else if (newActual === 0 && task.actualMinutes > 0) {

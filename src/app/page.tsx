@@ -17,10 +17,13 @@ import { ProjectRecruitingView } from "@/components/ProjectRecruitingView";
 import { AccountabilitySettingsView } from "@/components/AccountabilitySettingsView";
 import { SettingsView } from "@/components/SettingsView";
 import { StudyDayDTO } from "@/lib/types";
+import { getCurriculumDayForTexasDate } from "@/lib/texas-time";
 
 function MainApp() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("dashboard");
-  const [selectedDayNumber, setSelectedDayNumber] = useState<number>(1);
+  const [selectedDayNumber, setSelectedDayNumber] = useState<number>(() => {
+    return getCurriculumDayForTexasDate();
+  });
   const [currentDay, setCurrentDay] = useState<StudyDayDTO | null>(null);
   const [curriculumOverview, setCurriculumOverview] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);

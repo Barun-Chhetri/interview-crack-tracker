@@ -9,7 +9,9 @@ import {
   Clock,
   ExternalLink,
   Layers,
+  Sparkles,
 } from "lucide-react";
+import { getTexasIsoDate, getCurriculumDayForTexasDate } from "@/lib/texas-time";
 
 interface CalendarViewProps {
   onSelectDay: (dayNumber: number) => void;
@@ -32,6 +34,9 @@ export function CalendarView({ onSelectDay, onNavigateTab }: CalendarViewProps) 
   const [allDays, setAllDays] = useState<CalendarDaySummary[]>([]);
   const [currentMonthIndex, setCurrentMonthIndex] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(false);
+
+  const todayTexasDate = getTexasIsoDate();
+  const todayTexasDayNum = getCurriculumDayForTexasDate();
 
   // Program months: Oct 2026 to Apr 2027
   const programMonths = [
@@ -75,9 +80,13 @@ export function CalendarView({ onSelectDay, onNavigateTab }: CalendarViewProps) 
       {/* Month Navigation Banner */}
       <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="px-3 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
               180-Day Program Calendar
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 font-mono">
+              <Clock className="w-3 h-3 text-emerald-400" />
+              Texas Today: Day {todayTexasDayNum} ({todayTexasDate})
             </span>
             <span className="text-xs text-slate-400">
               Oct 14, 2026 &ndash; Apr 11, 2027
@@ -131,6 +140,7 @@ export function CalendarView({ onSelectDay, onNavigateTab }: CalendarViewProps) 
         {monthDays.map((d) => {
           const isDone = d.status === "Completed" || d.actualMinutes >= 180;
           const isInProgress = d.actualMinutes > 0 && !isDone;
+          const isToday = d.date === todayTexasDate;
 
           return (
             <div
@@ -139,8 +149,10 @@ export function CalendarView({ onSelectDay, onNavigateTab }: CalendarViewProps) 
                 onSelectDay(d.dayNumber);
                 onNavigateTab("checklist");
               }}
-              className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between ${
-                isDone
+              className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between relative ${
+                isToday
+                  ? "ring-2 ring-emerald-400 bg-emerald-950/20 border-emerald-500 shadow-lg shadow-emerald-500/10"
+                  : isDone
                   ? "bg-slate-900/60 border-emerald-500/30 hover:border-emerald-400 shadow-sm"
                   : isInProgress
                   ? "bg-indigo-950/20 border-indigo-500/40 hover:border-indigo-400"
@@ -149,9 +161,16 @@ export function CalendarView({ onSelectDay, onNavigateTab }: CalendarViewProps) 
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-indigo-300">
-                    Day {d.dayNumber}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-slate-800 text-indigo-300">
+                      Day {d.dayNumber}
+                    </span>
+                    {isToday && (
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-emerald-500 text-slate-950 animate-pulse">
+                        TODAY (TX)
+                      </span>
+                    )}
+                  </div>
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded ${
                       isDone

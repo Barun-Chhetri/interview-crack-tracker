@@ -1,6 +1,11 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
+import {
+  getCurriculumDayForTexasDate,
+  formatTexasLiveClock,
+  getTexasTzAbbreviation,
+} from "@/lib/texas-time";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -53,6 +58,17 @@ export function Navbar({
   todayPlannedMinutes,
 }: NavbarProps) {
   const { user, logout, setShowAuthModal, setAuthModalMode } = useAuth();
+  const [liveTexasClock, setLiveTexasClock] = useState<string>("");
+
+  useEffect(() => {
+    setLiveTexasClock(formatTexasLiveClock());
+    const timer = setInterval(() => {
+      setLiveTexasClock(formatTexasLiveClock());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const texasTodayDayNum = getCurriculumDayForTexasDate();
 
   const actualHours = (todayActualMinutes / 60).toFixed(1);
   const plannedHours = (todayPlannedMinutes / 60).toFixed(1);
@@ -101,7 +117,24 @@ export function Navbar({
         </div>
 
         {/* Day Selector & Daily Progress */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Live Texas Clock Badge */}
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-mono text-xs">
+            <Clock className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+            <span>Texas: <strong className="text-white">{liveTexasClock || "Loading..."}</strong></span>
+          </div>
+
+          {/* Jump to Today Button */}
+          {selectedDayNumber !== texasTodayDayNum && (
+            <button
+              onClick={() => setSelectedDayNumber(texasTodayDayNum)}
+              title="Jump to today's active curriculum day in Texas"
+              className="text-xs font-bold px-2.5 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition cursor-pointer"
+            >
+              Today (Day {texasTodayDayNum})
+            </button>
+          )}
+
           {/* Day Jump Selector */}
           <div className="relative flex items-center">
             <label htmlFor="day-selector" className="text-xs font-semibold text-slate-400 mr-2 hidden md:inline">
@@ -116,7 +149,7 @@ export function Navbar({
               >
                 {Array.from({ length: 180 }, (_, i) => i + 1).map((d) => (
                   <option key={d} value={d}>
-                    Day {d} / 180
+                    Day {d} {d === texasTodayDayNum ? "★ Today (Texas)" : "/ 180"}
                   </option>
                 ))}
               </select>
@@ -142,7 +175,7 @@ export function Navbar({
           {/* Streak Badge */}
           <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-xl px-2.5 py-1.5 text-xs font-semibold">
             <Flame className="w-3.5 h-3.5 fill-current" />
-            <span>Streak: Day {selectedDayNumber}</span>
+            <span>Day {selectedDayNumber}{selectedDayNumber === texasTodayDayNum ? " (Today)" : ""}</span>
           </div>
 
           {/* Public Share Link (Visible after login) */}

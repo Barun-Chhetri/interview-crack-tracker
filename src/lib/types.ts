@@ -66,6 +66,15 @@ export interface StudyDayDTO {
   confidenceRating?: number | null;
   tasks: ScheduledTaskDTO[];
   reviewsDue?: SpacedReviewDTO[];
+  sessions?: StudySessionDTO[];
+  isCurrentTexasToday?: boolean;
+  texasTime?: {
+    timezone: string;
+    timezoneAbbr: string;
+    todayDate: string;
+    todayDayNumber: number;
+    currentTimeFormatted: string;
+  };
 }
 
 export interface StudySessionDTO {
@@ -82,6 +91,13 @@ export interface StudySessionDTO {
   isManual: boolean;
   auditLog?: string | null;
   createdAt: string;
+  startTimeFormatted?: string;
+  endTimeFormatted?: string;
+  displayTimeRange?: string;
+  timezone?: string;
+  timezoneAbbr?: string;
+  durationMinutes?: number;
+  logSummary?: string;
 }
 
 export interface CarryoverRecordDTO {

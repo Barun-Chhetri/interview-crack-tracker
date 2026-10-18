@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { formatTexasDateTime } from "@/lib/texas-time";
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,7 +37,11 @@ export async function POST(request: NextRequest) {
         status: "completed",
         notes: notes || null,
         isManual: Boolean(isManual),
-        auditLog: auditLog || (isManual ? "Manual study session entry" : "Timer study session completed"),
+        auditLog:
+          auditLog ||
+          (isManual
+            ? `Manual study session entry [Texas Time: ${formatTexasDateTime(sEnd)}]`
+            : `Timer study session completed [Texas Time: ${formatTexasDateTime(sEnd)}]`),
       },
     });
 

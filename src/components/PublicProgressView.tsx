@@ -21,7 +21,15 @@ import {
   ListOrdered,
   Activity,
   Award,
+  MapPin,
 } from "lucide-react";
+import {
+  getTexasIsoDate,
+  formatTexasLiveClock,
+  getCurriculumDayForTexasDate,
+  getTexasTzAbbreviation,
+  TEXAS_TIMEZONE,
+} from "@/lib/texas-time";
 
 interface PublicStudent {
   name: string;
@@ -53,6 +61,15 @@ interface PublicStats {
   mediumProblemsCount: number;
   hardProblemsCount: number;
   totalAnchorProblems: number;
+  texasTime?: {
+    timezone: string;
+    timezoneAbbr: string;
+    date: string;
+    currentDayNumber: number;
+    time12h: string;
+    timeWithZone: string;
+    label: string;
+  };
 }
 
 interface PublicPhase {
@@ -90,6 +107,8 @@ export interface PublicSession {
   durationMinutes: number;
   durationHours: number;
   logSummary?: string;
+  timezone?: string;
+  timezoneAbbr?: string;
   taskTitle: string;
   category: string;
   status: string;
@@ -106,6 +125,7 @@ interface PublicDay {
   date: string;
   dayOfWeek: string;
   displayDate: string;
+  isCurrentTexasToday?: boolean;
   phase: string;
   topic: string;
   learningObjective: string;
@@ -178,20 +198,31 @@ export function PublicProgressView() {
     }
   };
 
+  const [texasLiveClock, setTexasLiveClock] = useState<string>("");
   useEffect(() => {
     fetchPublicProgress();
+    setTexasLiveClock(formatTexasLiveClock());
+    const interval = setInterval(() => {
+      setTexasLiveClock(formatTexasLiveClock());
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Compute Today's Problem / Active Study Day
+  // Compute Today's Problem / Active Study Day based on real-time Texas date
   const todayDay = useMemo(() => {
     if (days.length === 0) return null;
-    const todayStr = new Date().toISOString().split("T")[0];
-    const exactDateMatch = days.find((d) => d.date === todayStr);
+    const todayTexasStr = getTexasIsoDate();
+    const exactDateMatch = days.find((d) => d.date === todayTexasStr);
     if (exactDateMatch) return exactDateMatch;
 
     // Check last day with actual study time or completed status
     const activeOrDone = [...days].reverse().find((d) => d.status === "Completed" || d.actualMinutes > 0);
     if (activeOrDone) return activeOrDone;
+
+    // Fallback based on real curriculum day for Texas
+    const texasDayNum = getCurriculumDayForTexasDate(todayTexasStr);
+    const dayByNum = days.find((d) => d.dayNumber === texasDayNum);
+    if (dayByNum) return dayByNum;
 
     // Default to Day 1
     return days[0];
@@ -262,8 +293,12 @@ export function PublicProgressView() {
             </div>
           </div>
 
-          {/* Verification Badge */}
-          <div className="flex items-center gap-2 text-xs">
+          {/* Verification Badge & Live Texas Clock */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex items-center gap-1.5 bg-indigo-500/15 border border-indigo-500/30 rounded-xl px-3 py-1.5 text-indigo-300 font-mono">
+              <Clock className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Texas: <strong className="text-white">{texasLiveClock || "Loading..."}</strong></span>
+            </div>
             <div className="hidden md:flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-slate-300">
               <Calendar className="w-3.5 h-3.5 text-indigo-400" />
               <span>Oct 14, 2026 – Apr 11, 2027</span>
@@ -320,12 +355,16 @@ export function PublicProgressView() {
                   <Clock className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
                       Daily Study Time Log
                     </span>
                     <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-indigo-300 border border-slate-700">
                       Program Day {todayDay.dayNumber} of 180
+                    </span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 font-mono">
+                      <Clock className="w-3 h-3 text-emerald-400 animate-pulse" />
+                      Texas Time: {texasLiveClock}
                     </span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
@@ -403,7 +442,7 @@ export function PublicProgressView() {
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Clock className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Time Log Intervals (Start Time & End Time)</span>
+                    <span>Time Log Intervals (Start & Stop &bull; Texas Time / CT)</span>
                   </div>
                   <span className="text-[11px] font-mono text-emerald-400">
                     {(todayDay.sessions || []).length} study block{(todayDay.sessions || []).length === 1 ? "" : "s"}
@@ -415,7 +454,7 @@ export function PublicProgressView() {
                     <Clock className="w-5 h-5 text-slate-500 mx-auto" />
                     <p className="text-xs text-slate-300 font-medium">No study sessions recorded yet today (0 min spent)</p>
                     <p className="text-[11px] text-slate-500">
-                      When study time is logged, each start time and end time will be audited here (e.g. Started at 9:00 AM and stopped at 9:15 AM).
+                      When study time is logged, each start time and end time will be audited here in Texas Time (e.g. Started at 09:00 AM and stopped at 09:15 AM).
                     </p>
                   </div>
                 ) : (
@@ -429,6 +468,7 @@ export function PublicProgressView() {
                           <span className="font-bold text-white text-xs font-mono flex items-center gap-1.5">
                             <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
                             Started at {sess.startTimeFormatted} and stopped at {sess.endTimeFormatted}
+                            <span className="text-[10px] text-slate-400 font-normal">({sess.timezoneAbbr || "CT"})</span>
                           </span>
                           <span className="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 shrink-0">
                             {sess.durationMinutes} min spent
@@ -952,7 +992,7 @@ export function PublicProgressView() {
                                 >
                                   <div className="space-y-0.5 min-w-0 pr-2">
                                     <span className="font-mono font-bold text-white text-[11px] block">
-                                      Started at {sess.startTimeFormatted} and stopped at {sess.endTimeFormatted}
+                                      Started at {sess.startTimeFormatted} and stopped at {sess.endTimeFormatted} ({sess.timezoneAbbr || "CT"})
                                     </span>
                                     {sess.notes && (
                                       <p className="text-[10px] text-slate-400 truncate">
@@ -1030,7 +1070,7 @@ export function PublicProgressView() {
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      Day {sessionModalDay.dayNumber} Audit
+                      Day {sessionModalDay.dayNumber} Audit &bull; Texas Time (Central Time)
                     </span>
                     <span className="text-xs text-slate-400">{sessionModalDay.displayDate}</span>
                   </div>
@@ -1038,7 +1078,7 @@ export function PublicProgressView() {
                     Detailed Time Log & Study Session Breakdown
                   </h3>
                   <p className="text-xs text-slate-400 mt-1">
-                    Start time and end time audit records for all study blocks completed on this day.
+                    Start time and end time audit records for all study blocks completed on this day (America/Chicago &bull; Texas Time).
                   </p>
                 </div>
 
@@ -1082,7 +1122,7 @@ export function PublicProgressView() {
               {/* Timeline of Start Time & End Time Sessions */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
-                  <span>Session Timeline Breakdown</span>
+                  <span>Session Timeline Breakdown (Texas Time / CT)</span>
                   <span className="text-indigo-400 font-mono">{(sessionModalDay.sessions || []).length} Study Blocks</span>
                 </h4>
 
@@ -1092,7 +1132,7 @@ export function PublicProgressView() {
                       <Clock className="w-8 h-8 text-slate-600 mx-auto" />
                       <p className="text-sm font-semibold text-slate-300">No study sessions recorded for Day {sessionModalDay.dayNumber}</p>
                       <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                        This day currently has 0 minutes of verified study time. Once the focus timer runs or tasks are checked off, audited sessions will appear here.
+                        This day currently has 0 minutes of verified study time. Once the focus timer runs or tasks are checked off, audited sessions will appear here in Texas Time.
                       </p>
                     </div>
                   ) : (
@@ -1108,6 +1148,7 @@ export function PublicProgressView() {
                             </span>
                             <span className="font-extrabold text-sm font-mono text-white">
                               Started at {session.startTimeFormatted} and stopped at {session.endTimeFormatted}
+                              <span className="text-xs text-indigo-300 font-normal ml-1.5">({session.timezoneAbbr || "CT"})</span>
                             </span>
                           </div>
 
